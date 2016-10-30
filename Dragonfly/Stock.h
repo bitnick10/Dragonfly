@@ -60,6 +60,9 @@ public:
     float open_percent() const {
         return (open - prev->close) / prev->close;
     }
+    float body_middle() const {
+        return (open + close) / 2;
+    }
     double amplitude() const {
         return abs((high - low) / open);
     }
@@ -84,7 +87,9 @@ public:
         this->begin_time = time;
     }
     double percent_change() const {
-        assert(prev != nullptr);
+        //assert(prev != nullptr);
+        if (prev == nullptr)
+            return 0.0;
         return (close - prev->close) / prev->close;
     }
     bool is_stick_filled() const {
@@ -266,6 +271,9 @@ public:
     }
 private:
     void LoadData(const eight_digit_time& beginDate, const std::string& fullfilename) {
+        if(!FileExists(fullfilename)) {
+            return;
+        }
         sqlite3 *db;
         sqlite3_stmt *stmt;
         const char *zTail;
