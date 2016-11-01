@@ -43,6 +43,7 @@ using namespace boost::system;
 //};
 struct TradeData {
     TradeData* prev;
+    int i; // index self
     year_month_day_hour_min_sec begin_time;
     float open, close, high, low, volume;
 public:
@@ -174,6 +175,10 @@ public:
         std::vector<float> vr_;
         std::vector<float> asi_;
         std::vector<ARBR> arbr_;
+        std::vector<float> ma5_;
+        std::vector<float> ma10_;
+        std::vector<float> ma20_;
+        std::vector<float> ma60_;
         //Indicators(const Stock& owner) {
         //}
         const std::vector<ARBR>& arbr() const {
@@ -206,7 +211,20 @@ public:
         const std::vector<float>& asi() const {
             return asi_;
         }
+        const std::vector<float>& ma5() const {
+            return ma5_;
+        }
+        const std::vector<float>& ma10() const {
+            return ma10_;
+        }
+        const std::vector<float>& ma20() const {
+            return ma20_;
+        }
+        const std::vector<float>& ma60() const {
+            return ma60_;
+        }
         void InitKDJ(int n);
+        void InitMA();
         void InitDMI(int n1, int n2);
         void Update();
     };
@@ -224,7 +242,7 @@ protected:
     float pe_;
     TradeDataType trade_data_type_;
     std::vector<TradeData> trade_data_;
-
+    std::vector<const TradeData*> trade_data_block_;
 public: // property
     const std::string& id() const {
         return id_;
@@ -240,6 +258,11 @@ public: // property
     }
     const std::vector<TradeData>& trade_data() const {
         return trade_data_;
+    }
+    // use for fast access
+    // please init it first by call InitTradeDataBlock
+    const std::vector<const TradeData*>& trade_data_block() const {
+        return trade_data_block_;
     }
 public:
     const Indicators& indicators() const {
@@ -257,6 +280,24 @@ public:
     }
     ~Stock();
 public:
+    void InitTradeDataBlock(const Stock& index) {
+        trade_data_block_.clear();
+        trade_data_block_.reserve(index.trade_data().size());
+        for (size_t i = 0; i < trade_data_block_.size(); i++) {
+            trade_data_block_[i] = nullptr;
+        }
+        for (size_t i = 0; i < index.trade_data().size(); i++) {
+            //int index_i = index.GetIndex((index.trade_data()[i].begin_time));
+            int this_i = this->GetIndex(index.trade_data()[i].begin_time);
+            if (this_i != -1) {
+                const TradeData* p = &trade_data()[this_i];
+                trade_data_block_.push_back(p);
+            } else {
+                trade_data_block_.push_back(nullptr);
+            }
+        }
+        assert(trade_data_block_.size() == index.trade_data().size());
+    }
     void UpdateIndicators() {
         indicators_.Update();
     }
@@ -267,6 +308,9 @@ public:
         trade_data_[0].prev = nullptr;
         for (size_t i = 1; i < this->trade_data_.size(); i++) {
             trade_data_[i].prev = &trade_data_[i - 1];
+        }
+        for (size_t i = 0; i < this->trade_data_.size(); i++) {
+            trade_data_[i].i = i;
         }
     }
 private:
@@ -351,6 +395,15 @@ public:
         }
         return this->trade_data()[hi].begin_time;
     }
+    /* int GetIndex(const year_month_day_hour_min_sec& time) const {
+         int i = 0;
+         for (auto && d : this->trade_data()) {
+             if (d.begin_time == time)
+                 return i;
+             ++i;
+         }
+         return -1;
+     }*/
     int GetIndex(const year_month_day_hour_min_sec& time) const {
         for (size_t i = 0; i < this->trade_data().size(); i++) {
             if (this->trade_data()[i].begin_time == time)
@@ -358,13 +411,20 @@ public:
         }
         return -1;
     }
+    bool is_suspended(const year_month_day_hour_min_sec& time, const Stock& index) const {
+        if (index.GetLatestTradingTime(time).epoch() != this->GetLatestTradingTime(time).epoch()) {
+            return true;
+        }
+        return false;
+    }
     bool IsTradingDay(const year_month_day_hour_min_sec& time) const {
         return GetIndex(time) != -1;
     }
     year_month_day_hour_min_sec GetLatestTradingTime(const year_month_day_hour_min_sec& time) const {
         year_month_day_hour_min_sec ret = time;
-        for (int i = 0; i < 20; i++) {
+        for (int i = 0; i < 30; i++) {
             if (GetIndex(ret) != -1) {
+                //std::cout << "GetIndex!=-1" << std::endl;
                 return ret;
             }
             ret.AddDay(-1);

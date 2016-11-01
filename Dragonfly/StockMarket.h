@@ -15,6 +15,7 @@
 class StockMarket : public Market {
 public:
     std::vector<Stock*> stocks0s6s;
+    std::vector<Stock*> index;
 public:
     StockMarket(eight_digit_time beginDate) {
         std::cout << "StockMarket construct" << std::endl;
@@ -26,8 +27,19 @@ public:
                 stocks0s6s.push_back(sp);
             }
         }
+        for (auto && s : this->stocks) {
+            if (s->id()[0] == 'i') {
+                Stock* sp = s.get();
+                index.push_back(sp);
+            }
+        }
         assert(stocks0s6s.size() > 1000);
-        std::cout << "StockMarket construct finished" << std::endl;
+        assert(index.size() > 1);
 
+        for (auto && s : this->stocks) {
+            s->InitTradeDataBlock(*index[0]);
+        }
+
+        std::cout << "StockMarket construct finished" << std::endl;
     }
 };
