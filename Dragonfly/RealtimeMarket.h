@@ -11,11 +11,15 @@
 #include "../Dragonfly/fmt/format.h"
 
 #include "Market.h"
-class RealtimeMarket : public Market {
+class RealtimeMarket : public StockMarket {
 public:
-    RealtimeMarket(eight_digit_time stockDataBeginDate) : Market(stockDataBeginDate) {
+    RealtimeMarket(eight_digit_time stockDataBeginDate) : StockMarket(stockDataBeginDate) {
     }
     void Update(eight_digit_time todayDate) {
+        TradeData faked_data;
+        faked_data.begin_time = todayDate;
+        const_cast<std::vector<TradeData>&>(this->index[0]->trade_data()).push_back(faked_data);
+
         std::cout << "RealtimeMarket Update\n";
         std::string path = DATA_ROOT_PATH + "hdata_raw\\realtime_stock.csv";
         std::ifstream t(path.c_str());
@@ -91,6 +95,7 @@ public:
                     const_cast<std::vector<TradeData>&>(this->stocks[i]->trade_data()).push_back(std::get<1>(*it));
                     s->UpdateDataLink();
                     s->UpdateIndicators();
+                    s->InitTradeDataBlock(*index[0]);
                 }
             }
 

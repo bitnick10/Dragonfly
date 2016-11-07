@@ -18,9 +18,10 @@ public:
     std::vector<Stock*> index;
 public:
     StockMarket(eight_digit_time beginDate) {
-        std::cout << "StockMarket construct" << std::endl;
+        std::cout << "StockMarket construct " << beginDate << std::endl;
         AddIndex(beginDate);
         AddStocks(beginDate);
+        RemoveBadDataStock("600845"); // source data can not use
         for (auto && s : this->stocks) {
             if (s->id()[0] == '0' || s->id()[0] == '6') {
                 Stock* sp = s.get();
@@ -41,5 +42,15 @@ public:
         }
 
         std::cout << "StockMarket construct finished" << std::endl;
+    }
+    void RemoveBadDataStock(const std::string& stock_id) {
+        std::vector<std::unique_ptr<Stock>>::iterator iter = this->stocks.begin();
+        while (iter != this->stocks.end()) {
+            if ((*iter)->id() == stock_id) {
+                iter = this->stocks.erase(iter);
+            } else {
+                ++iter;
+            }
+        }
     }
 };

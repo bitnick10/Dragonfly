@@ -53,7 +53,7 @@ inline double MA(const TradeData& d, int n) {
     double ret = 0.0;
     const TradeData* p = &d;
     int i = 0;
-    for (; i < n; i++ ) {
+    for (; i < n; i++) {
         float c = p->close;
         ret += c;
         if (p->prev != nullptr) {
@@ -108,6 +108,19 @@ inline void SUM(float* des, const float* src, size_t n, size_t len) {
         }
     }
 }
+// simple moving average
+inline std::vector<double> SMA(const Stock& s, double N, int M) {
+    double* sma = new double[s.trade_data().size()];
+    sma[0] = s.trade_data()[0].close;
+    for (size_t i = 1; i < s.trade_data().size(); i++) {
+        sma[i] = (s.trade_data()[i].close * M + sma[i - 1] * (N - M)) / N;
+    }
+    std::vector<double> ret;
+    for (size_t i = 0; i < s.trade_data().size(); i++) {
+        ret.push_back(sma[i]);
+    }
+    return ret;
+}
 inline std::vector<double> EMA(const Stock& s, double N) {
     double* ema = new double[s.trade_data().size()];
     ema[0] = s.trade_data()[0].close;// 第一天ema等于当天收盘价
@@ -123,16 +136,12 @@ inline std::vector<double> EMA(const Stock& s, double N) {
     return ret;
 }
 // simple moving average
-inline std::vector<double> SMA(const Stock& s, double N, int M) {
-    double* sma = new double[s.trade_data().size()];
-    sma[0] = s.trade_data()[0].close;
-    for (size_t i = 1; i < s.trade_data().size(); i++) {
-        sma[i] = (s.trade_data()[i].close * M + sma[i - 1] * (N - M)) / N;
+inline void SMA(double* sma, const double* src, int data_len, double N, int M) {
+    sma[0] = src[0];
+    auto k = M / (N + 1.0);
+    for (int i = 1; i < data_len; i++) {
+        sma[i] = src[i] * k + sma[i - 1] * (1 - k);
     }
-    std::vector<double> ret;
-    for (size_t i = 0; i < s.trade_data().size(); i++) {
-        ret.push_back(sma[i]);
-    }
-    return ret;
 }
-}
+
+} // namespace indicator {

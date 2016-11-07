@@ -41,13 +41,196 @@ using namespace boost::system;
 //    double open, close, high, low, volume;
 //public:
 //};
+#define TRADA_DATA_FLOAT float
 struct TradeData {
+    enum CandleType {
+        LittleHollow, // amp < 1%
+        LittleFilled,
+        Hollow_NoShadow, // reverse direction less than 10% of the body
+        Hollow_XShortUpperShadow, // 10%-25% of the body
+        Hollow_ShortUpperShadow, // 25%-50% of the body
+        Hollow_MediumUpperShadow, // 50%-100%
+        Hollow_LongUpperShadow, // 100%-200%
+        Hollow_XLongUpperShadow, // above 200%
+        Filled_NoShadow, // reverse direction less than 10% of the body
+        Filled_XShortLowerShadow, // 10%-25% of the body
+        Filled_ShortLowerShadow, // 25%-50% of the body
+        Filled_MediumLowerShadow, // 50%-100%
+        Filled_LongLowerShadow, // 100%-200%
+        Filled_XLongLowerShadow, // above 200%
+        End
+    };
+    enum CandleTypeClass2 {
+        LittleHollow2, // amp < 1%
+        LittleFilled2,
+        Hollow,
+        Filled,
+        End2
+    };
     TradeData* prev;
     int i; // index self
     year_month_day_hour_min_sec begin_time;
-    float open, close, high, low, volume;
+    TRADA_DATA_FLOAT open, close, high, low, volume;
+private:
+    bool is_stick_up_;
+    bool is_stick_filled_;
+    TRADA_DATA_FLOAT body_up_line_;
+    TRADA_DATA_FLOAT upper_shadow_amplitude_;
+    TRADA_DATA_FLOAT lower_shadow_amplitude_;
+    TRADA_DATA_FLOAT amplitude_;
+    TRADA_DATA_FLOAT body_amplitude_;
+    CandleType candle_type_;
+    CandleTypeClass2 candle_type_class2_;
+public: // property
+    bool is_stick_up() const {
+        return is_stick_up_;
+    }
+    bool is_stick_filled() const {
+        return is_stick_filled_;
+    }
+    TRADA_DATA_FLOAT body_up_line() const {
+        return body_up_line_;
+    }
+    TRADA_DATA_FLOAT upper_shadow_amplitude() const {
+        return upper_shadow_amplitude_;
+    }
+    TRADA_DATA_FLOAT lower_shadow_amplitude() const {
+        return lower_shadow_amplitude_;
+    }
+    TRADA_DATA_FLOAT amplitude() const {
+        return amplitude_;
+    }
+    TRADA_DATA_FLOAT body_amplitude() const {
+        return body_amplitude_;
+    }
+    bool has_long_tail() const {
+        if (body_amplitude() < 1.0 / 100) {
+            if (is_stick_up()) {
+                return lower_shadow_amplitude() > 2.0 / 100;
+            } else
+                return upper_shadow_amplitude() > 2.0 / 100;
+        } else {
+            if (is_stick_up()) {
+                return lower_shadow_amplitude() > body_amplitude();
+            } else
+                return upper_shadow_amplitude() > body_amplitude();
+        }
+    }
+    CandleType candle_type() const {
+        return candle_type_;
+    }
+    CandleTypeClass2 candle_type_class2() const {
+        return candle_type_class2_;
+    }
+public:
+    void Update() {
+        is_stick_up_ = close > open;
+        is_stick_filled_ = close < open;
+        body_up_line_ = MAX(open, close);
+        upper_shadow_amplitude_ = (high - body_up_line()) / open;
+        lower_shadow_amplitude_ = (MIN(open, close) - low) / open;
+        amplitude_ =  abs(high - low) / open;
+        body_amplitude_ = abs(open - close) / open;
+        UpdateCandleType();
+        UpdateCandleTypeClass2();
+    }
+private:
+    void UpdateCandleType() {
+        if (body_amplitude() < 1.0 / 100) {
+            if (is_stick_up()) {
+                candle_type_ = LittleHollow;
+                return;
+            } else {
+                candle_type_ = LittleFilled;
+                return;
+            }
+        } else {
+            if (is_stick_up()) {
+                if (upper_shadow_amplitude() < body_amplitude() * 10.0 / 100) {
+                    candle_type_ = Hollow_NoShadow;
+                    return;
+                }
+                if (upper_shadow_amplitude() < body_amplitude() * 25.0 / 100) {
+                    candle_type_ = Hollow_XShortUpperShadow;
+                    return;
+                }
+                if (upper_shadow_amplitude() < body_amplitude() * 50.0 / 100) {
+                    candle_type_ = Hollow_ShortUpperShadow;
+                    return;
+                }
+                if (upper_shadow_amplitude() < body_amplitude() * 100.0 / 100) {
+                    candle_type_ = Hollow_MediumUpperShadow;
+                    return;
+                }
+                if (upper_shadow_amplitude() < body_amplitude() * 200.0 / 100) {
+                    candle_type_ = Hollow_LongUpperShadow;
+                    return;
+                } else  {
+                    candle_type_ = Hollow_XLongUpperShadow;
+                    return;
+                }
+            } else { // stick filled
+                if (lower_shadow_amplitude() < body_amplitude() * 10.0 / 100) {
+                    candle_type_ = Filled_NoShadow;
+                    return;
+                }
+                if (lower_shadow_amplitude() < body_amplitude() * 25.0 / 100) {
+                    candle_type_ = Filled_XShortLowerShadow;
+                    return;
+                }
+                if (lower_shadow_amplitude() < body_amplitude() * 50.0 / 100) {
+                    candle_type_ = Filled_ShortLowerShadow;
+                    return;
+                }
+                if (lower_shadow_amplitude() < body_amplitude() * 100.0 / 100) {
+                    candle_type_ = Filled_MediumLowerShadow;
+                    return;
+                }
+                if (lower_shadow_amplitude() < body_amplitude() * 200.0 / 100) {
+                    candle_type_ = Filled_LongLowerShadow;
+                    return;
+                } else {
+                    candle_type_ = Filled_XLongLowerShadow;
+                    return;
+                }
+            }
+        }
+    }
+    void UpdateCandleTypeClass2() {
+        if (body_amplitude() < 1.0 / 100) {
+            if (is_stick_up()) {
+                candle_type_class2_ = CandleTypeClass2::LittleHollow2;
+                return;
+            } else {
+                candle_type_class2_ = CandleTypeClass2::LittleFilled2;
+                return;
+            }
+        } else {
+            if (is_stick_up()) {
+                candle_type_class2_ = CandleTypeClass2::Hollow;
+                return;
+            } else {
+                candle_type_class2_ = CandleTypeClass2::Filled;
+                return;
+            }
+        }
+    }
 public:
     TradeData() {
+    }
+    bool is_close_new_high(int n) const {
+        TradeData* past = this->prev;
+        for (int i = 0; i < n && (past != nullptr); i++, past = past->prev) {
+            if (close < past->high)
+                return false;
+        }
+        return true;
+    }
+    bool is_open_higher_than_prev_high() const {
+        return open > prev->high;
+    }
+    bool is_body_contains(float price) {
+        return (MIN(open, close) <= price && price <= MAX(open, close));
     }
     float high_percent() const {
         return (high - prev->close) / prev->close;
@@ -64,26 +247,6 @@ public:
     float body_middle() const {
         return (open + close) / 2;
     }
-    double amplitude() const {
-        return abs((high - low) / open);
-    }
-    double body_amplitude() const {
-        return abs((open - close) / open);
-    }
-    double upper_shadow_amplitude() const {
-        double body_up_line = close;
-        if (percent_change_today() < 0) {
-            body_up_line = open;
-        }
-        return (high - body_up_line) / open;
-    }
-    double lower_shadow_amplitude() const {
-        double body_bottom_line = open;
-        if (percent_change_today() < 0) {
-            body_bottom_line = close;
-        }
-        return (body_bottom_line - low) / open;
-    }
     void set_begin_time(year_month_day_hour_min_sec time) {
         this->begin_time = time;
     }
@@ -92,12 +255,6 @@ public:
         if (prev == nullptr)
             return 0.0;
         return (close - prev->close) / prev->close;
-    }
-    bool is_stick_filled() const {
-        return (close - open) < 0;
-    }
-    bool is_stick_up() const {
-        return (close - open) > 0;
     }
     bool has_upper_shadow() const {
         if (high > open && high > close)
@@ -165,6 +322,8 @@ public:
     class Indicators {
     public:
         const Stock* stock;
+        std::vector<float> rsi5_;
+        std::vector<float> rsi10_;
         std::vector<KDJ> kdj_;
         std::vector<MTI2> mti2_;
         std::vector<MTI3> mti3_;
@@ -175,12 +334,18 @@ public:
         std::vector<float> vr_;
         std::vector<float> asi_;
         std::vector<ARBR> arbr_;
-        std::vector<float> ma5_;
-        std::vector<float> ma10_;
-        std::vector<float> ma20_;
-        std::vector<float> ma60_;
+        //std::vector<float> ma5_;
+        //std::vector<float> ma10_;
+        //std::vector<float> ma20_;
+        //std::vector<float> ma60_;
         //Indicators(const Stock& owner) {
         //}
+        const std::vector<float>& rsi5() const {
+            return rsi5_;
+        }
+        const std::vector<float>& rsi10() const {
+            return rsi10_;
+        }
         const std::vector<ARBR>& arbr() const {
             return arbr_;
         }
@@ -211,20 +376,20 @@ public:
         const std::vector<float>& asi() const {
             return asi_;
         }
-        const std::vector<float>& ma5() const {
-            return ma5_;
-        }
-        const std::vector<float>& ma10() const {
-            return ma10_;
-        }
-        const std::vector<float>& ma20() const {
-            return ma20_;
-        }
-        const std::vector<float>& ma60() const {
-            return ma60_;
-        }
+        /*  const std::vector<float>& ma5() const {
+              return ma5_;
+          }
+          const std::vector<float>& ma10() const {
+              return ma10_;
+          }
+          const std::vector<float>& ma20() const {
+              return ma20_;
+          }
+          const std::vector<float>& ma60() const {
+              return ma60_;
+          }*/
         void InitKDJ(int n);
-        void InitMA();
+        // void InitMA();
         void InitDMI(int n1, int n2);
         void Update();
     };
@@ -308,10 +473,12 @@ public:
         trade_data_[0].prev = nullptr;
         for (size_t i = 1; i < this->trade_data_.size(); i++) {
             trade_data_[i].prev = &trade_data_[i - 1];
+            trade_data_[i].Update();
         }
         for (size_t i = 0; i < this->trade_data_.size(); i++) {
             trade_data_[i].i = i;
         }
+
     }
 private:
     void LoadData(const eight_digit_time& beginDate, const std::string& fullfilename) {

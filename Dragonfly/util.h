@@ -57,7 +57,7 @@ inline uint32_t OneHexStringToUInt32(std::string str) {
 }
 inline void HexStringToStruct(std::string str, unsigned char* data, int size) {
     int index = 0;
-    for (int i = 0; i < str.size(); i += 2) {
+    for (size_t i = 0; i < str.size(); i += 2) {
         std::string hexstring = str.substr(i, 2);
         uint32_t u = OneHexStringToUInt32(hexstring);
         data[index++] = static_cast<unsigned char>(u);

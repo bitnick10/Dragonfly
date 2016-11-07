@@ -5,6 +5,7 @@
 #include "MTI.h"
 #include "FMTI.h"
 #include "VR.h"
+#include "RSI.h"
 #include "BOLL.h"
 
 //MFI Stock::GetMFI() {
@@ -15,20 +16,20 @@ void Stock::Indicators::InitDMI(int n1, int n2) {
     DMICalculator c(*stock, n1, n2);
     dmi_ = std::move(c.Calculate());
 }
-void Stock::Indicators::InitMA() {
-    if (stock->trade_data().size() < 5)
-        return;
-    ma5_.reserve(stock->trade_data().size());
-    ma10_.reserve(stock->trade_data().size());
-    ma20_.reserve(stock->trade_data().size());
-    ma60_.reserve(stock->trade_data().size());
-    for (size_t i = 0; i < stock->trade_data().size(); i++) {
-        ma5_[i] = indicator::MA(stock->trade_data()[i], 5);
-        ma10_[i] = indicator::MA(stock->trade_data()[i], 10);
-        ma20_[i] = indicator::MA(stock->trade_data()[i], 20);
-        ma60_[i] = indicator::MA(stock->trade_data()[i], 60);
-    }
-}
+//void Stock::Indicators::InitMA() {
+/*  if (stock->trade_data().size() < 5)
+      return;
+  ma5_.reserve(stock->trade_data().size());
+  ma10_.reserve(stock->trade_data().size());
+  ma20_.reserve(stock->trade_data().size());
+  ma60_.reserve(stock->trade_data().size());
+  for (size_t i = 0; i < stock->trade_data().size(); i++) {
+      ma5_[i] = indicator::MA(stock->trade_data()[i], 5);
+      ma10_[i] = indicator::MA(stock->trade_data()[i], 10);
+      ma20_[i] = indicator::MA(stock->trade_data()[i], 20);
+      ma60_[i] = indicator::MA(stock->trade_data()[i], 60);
+  }*/
+//}
 void Stock::Indicators::InitKDJ(int n) {
     if (stock->trade_data().size() < 5)
         return;
@@ -75,7 +76,8 @@ void Stock::Indicators::Update() {
         return;
     }
     //std::cout << "init " << id << " indicator data\n";
-
+    rsi5_.clear();
+    rsi10_.clear();
     arbr_.clear();
     kdj_.clear();
     vr_.clear();
@@ -84,13 +86,18 @@ void Stock::Indicators::Update() {
     mti2_.clear();
     fmti3_.clear();
     fmti2_.clear();
-    ma5_.clear();
-    ma10_.clear();
-    ma20_.clear();
-    ma60_.clear();
+    // ma5_.clear();
+    // ma10_.clear();
+    // ma20_.clear();
+    // ma60_.clear();
 
-    InitKDJ(4);
-    InitMA();
+    InitKDJ(5);
+    // InitMA();
+
+    RSICalculator rsic5(*stock, 5);
+    rsi5_ = std::move(rsic5.GetResult());
+    RSICalculator rsic10(*stock, 10);
+    rsi10_ = std::move(rsic10.GetResult());
 
     ARBRCalculator arbrc(*stock);
     arbr_ = std::move(arbrc.GetResult());
