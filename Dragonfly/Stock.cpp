@@ -82,10 +82,10 @@ void Stock::Indicators::Update() {
     kdj_.clear();
     vr_.clear();
     asi_.clear();
-    mti3_.clear();
-    mti2_.clear();
-    fmti3_.clear();
-    fmti2_.clear();
+    // mti3_.clear();
+    // mti2_.clear();
+    // fmti3_.clear();
+    // fmti2_.clear();
     // ma5_.clear();
     // ma10_.clear();
     // ma20_.clear();
@@ -113,49 +113,49 @@ void Stock::Indicators::Update() {
     ASICalculator asic(*stock, 26);
     asi_ = std::move(asic.GetResult());
 
-    mti3_.reserve(stock->trade_data().size());
-    mti3_.push_back(std::move(MTI3()));
-    mti3_.push_back(std::move(MTI3()));
-    mti3_.push_back(std::move(MTI3()));
-    mti3_.push_back(std::move(MTI3()));
-    mti3_.push_back(std::move(MTI3()));
-    for (size_t i = 5; i < stock->trade_data().size(); i++) {
-        mti3_.push_back(std::move(MTI3(stock->trade_data()[i], *stock)));
-    }
-    assert(mti3_.size() == stock->trade_data().size());
+    /* mti3_.reserve(stock->trade_data().size());
+     mti3_.push_back(std::move(MTI3()));
+     mti3_.push_back(std::move(MTI3()));
+     mti3_.push_back(std::move(MTI3()));
+     mti3_.push_back(std::move(MTI3()));
+     mti3_.push_back(std::move(MTI3()));
+     for (size_t i = 5; i < stock->trade_data().size(); i++) {
+         mti3_.push_back(std::move(MTI3(stock->trade_data()[i], *stock)));
+     }
+     assert(mti3_.size() == stock->trade_data().size());
 
-    mti2_.reserve(stock->trade_data().size());
-    mti2_.push_back(std::move(MTI2()));
-    mti2_.push_back(std::move(MTI2()));
-    mti2_.push_back(std::move(MTI2()));
-    mti2_.push_back(std::move(MTI2()));
-    mti2_.push_back(std::move(MTI2()));
-    for (size_t i = 5; i < stock->trade_data().size(); i++) {
-        mti2_.push_back(std::move(MTI2(stock->trade_data()[i], *stock)));
-    }
-    assert(mti2_.size() == stock->trade_data().size());
+     mti2_.reserve(stock->trade_data().size());
+     mti2_.push_back(std::move(MTI2()));
+     mti2_.push_back(std::move(MTI2()));
+     mti2_.push_back(std::move(MTI2()));
+     mti2_.push_back(std::move(MTI2()));
+     mti2_.push_back(std::move(MTI2()));
+     for (size_t i = 5; i < stock->trade_data().size(); i++) {
+         mti2_.push_back(std::move(MTI2(stock->trade_data()[i], *stock)));
+     }
+     assert(mti2_.size() == stock->trade_data().size());*/
 
-    fmti3_.reserve(stock->trade_data().size());
-    fmti3_.push_back(std::move(FMTI3()));
-    fmti3_.push_back(std::move(FMTI3()));
-    fmti3_.push_back(std::move(FMTI3()));
-    fmti3_.push_back(std::move(FMTI3()));
-    fmti3_.push_back(std::move(FMTI3()));
-    for (size_t i = 5; i < stock->trade_data().size(); i++) {
-        fmti3_.push_back(std::move(FMTI3(stock->trade_data()[i], *stock)));
-    }
-    assert(fmti3_.size() == stock->trade_data().size());
+    /* fmti3_.reserve(stock->trade_data().size());
+     fmti3_.push_back(std::move(FMTI3()));
+     fmti3_.push_back(std::move(FMTI3()));
+     fmti3_.push_back(std::move(FMTI3()));
+     fmti3_.push_back(std::move(FMTI3()));
+     fmti3_.push_back(std::move(FMTI3()));
+     for (size_t i = 5; i < stock->trade_data().size(); i++) {
+         fmti3_.push_back(std::move(FMTI3(stock->trade_data()[i], *stock)));
+     }
+     assert(fmti3_.size() == stock->trade_data().size());
 
-    fmti2_.reserve(stock->trade_data().size());
-    fmti2_.push_back(std::move(FMTI2()));
-    fmti2_.push_back(std::move(FMTI2()));
-    fmti2_.push_back(std::move(FMTI2()));
-    fmti2_.push_back(std::move(FMTI2()));
-    fmti2_.push_back(std::move(FMTI2()));
-    for (size_t i = 5; i < stock->trade_data().size(); i++) {
-        fmti2_.push_back(std::move(FMTI2(stock->trade_data()[i], *stock)));
-    }
-    assert(fmti2_.size() == stock->trade_data().size());
+     fmti2_.reserve(stock->trade_data().size());
+     fmti2_.push_back(std::move(FMTI2()));
+     fmti2_.push_back(std::move(FMTI2()));
+     fmti2_.push_back(std::move(FMTI2()));
+     fmti2_.push_back(std::move(FMTI2()));
+     fmti2_.push_back(std::move(FMTI2()));
+     for (size_t i = 5; i < stock->trade_data().size(); i++) {
+         fmti2_.push_back(std::move(FMTI2(stock->trade_data()[i], *stock)));
+     }
+     assert(fmti2_.size() == stock->trade_data().size());*/
 }
 
 //Stock::Stock(const Stock& s) : id_(s.id_), name_(s.name_), trade_data_type_(s.trade_data_type_) {

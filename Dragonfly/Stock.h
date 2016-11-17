@@ -16,6 +16,8 @@
 #include "ARBR.h"
 #include "BOLL.h"
 #include "DMI.h"
+#include "VR.h"
+
 class ASI;
 class MFI;
 class MTI2;
@@ -61,16 +63,21 @@ struct TradeData {
         End
     };
     enum CandleTypeClass2 {
-        LittleHollow2, // amp < 1%
-        LittleFilled2,
-        Hollow,
-        Filled,
+        RealLittleHollow2, // amp < 1%
+        FakeLittleHollow2,
+        RealLittleFilled2,
+        FakeLittleFilled2,
+        RealHollow,
+        FakeHollow,
+        RealFilled,
+        FakeFilled,
         End2
     };
     TradeData* prev;
     int i; // index self
     year_month_day_hour_min_sec begin_time;
     TRADA_DATA_FLOAT open, close, high, low, volume;
+    bool is_S_ST_StarST;
 private:
     bool is_stick_up_;
     bool is_stick_filled_;
@@ -81,6 +88,7 @@ private:
     TRADA_DATA_FLOAT body_amplitude_;
     CandleType candle_type_;
     CandleTypeClass2 candle_type_class2_;
+    bool can_open_long_position_at_close_price_;
 public: // property
     bool is_stick_up() const {
         return is_stick_up_;
@@ -122,6 +130,9 @@ public: // property
     CandleTypeClass2 candle_type_class2() const {
         return candle_type_class2_;
     }
+    bool can_open_long_position_at_close_price() const {
+        return can_open_long_position_at_close_price_;
+    }
 public:
     void Update() {
         is_stick_up_ = close > open;
@@ -133,6 +144,7 @@ public:
         body_amplitude_ = abs(open - close) / open;
         UpdateCandleType();
         UpdateCandleTypeClass2();
+        UpdateCanOpenLongPositionAtClosePrice();
     }
 private:
     void UpdateCandleType() {
@@ -199,21 +211,57 @@ private:
     void UpdateCandleTypeClass2() {
         if (body_amplitude() < 1.0 / 100) {
             if (is_stick_up()) {
-                candle_type_class2_ = CandleTypeClass2::LittleHollow2;
-                return;
+                if (is_price_up()) {
+                    candle_type_class2_ = CandleTypeClass2::RealLittleHollow2;
+                    return;
+                } else {
+                    candle_type_class2_ = CandleTypeClass2::FakeLittleHollow2;
+                    return;
+                }
             } else {
-                candle_type_class2_ = CandleTypeClass2::LittleFilled2;
-                return;
+                if(is_price_down()) {
+                    candle_type_class2_ = CandleTypeClass2::RealLittleFilled2;
+                    return;
+                } else {
+                    candle_type_class2_ = CandleTypeClass2::FakeLittleFilled2;
+                    return;
+                }
+
             }
         } else {
             if (is_stick_up()) {
-                candle_type_class2_ = CandleTypeClass2::Hollow;
-                return;
+                if (is_price_up()) {
+                    candle_type_class2_ = CandleTypeClass2::RealHollow;
+                    return;
+                } else {
+                    candle_type_class2_ = CandleTypeClass2::FakeHollow;
+                    return;
+                }
             } else {
-                candle_type_class2_ = CandleTypeClass2::Filled;
-                return;
+                if (is_price_down()) {
+                    candle_type_class2_ = CandleTypeClass2::RealFilled;
+                    return;
+                } else {
+                    candle_type_class2_ = CandleTypeClass2::FakeFilled;
+                    return;
+                }
             }
         }
+    }
+    void UpdateCanOpenLongPositionAtClosePrice() {
+        if (abs(high - low) < 0.001) {
+            can_open_long_position_at_close_price_ = false;
+            return;
+        }
+        if (up_percent() > 9.85 / 100) {
+            can_open_long_position_at_close_price_ = false;
+            return;
+        }
+        if (is_S_ST_StarST && up_percent() > 4.85 / 100) {
+            can_open_long_position_at_close_price_ = false;
+            return;
+        }
+        can_open_long_position_at_close_price_ = true;
     }
 public:
     TradeData() {
@@ -325,13 +373,13 @@ public:
         std::vector<float> rsi5_;
         std::vector<float> rsi10_;
         std::vector<KDJ> kdj_;
-        std::vector<MTI2> mti2_;
+        /*std::vector<MTI2> mti2_;
         std::vector<MTI3> mti3_;
         std::vector<FMTI2> fmti2_;
-        std::vector<FMTI3> fmti3_;
+        std::vector<FMTI3> fmti3_;*/
         std::vector<BOLL> boll_;
         std::vector<DMI_I> dmi_;
-        std::vector<float> vr_;
+        std::vector<VR> vr_;
         std::vector<float> asi_;
         std::vector<ARBR> arbr_;
         //std::vector<float> ma5_;
@@ -352,7 +400,7 @@ public:
         const std::vector<KDJ>& kdj() const {
             return kdj_;
         }
-        const std::vector<MTI2>& mti2() const {
+        /*const std::vector<MTI2>& mti2() const {
             return mti2_;
         }
         const std::vector<MTI3>& mti3() const {
@@ -363,11 +411,11 @@ public:
         }
         const std::vector<FMTI3>& fmti3() const {
             return fmti3_;
-        }
+        }*/
         const std::vector<DMI_I>& dmi() const {
             return dmi_;
         }
-        const std::vector<float>& vr() const {
+        const std::vector<VR>& vr() const {
             return vr_;
         }
         const std::vector<BOLL>& boll() const {
@@ -478,7 +526,15 @@ public:
         for (size_t i = 0; i < this->trade_data_.size(); i++) {
             trade_data_[i].i = i;
         }
-
+        if (this->name()[0] == 'S' || this->name()[0] == '*') {
+            for (size_t i = 0; i < this->trade_data_.size(); i++) {
+                trade_data_[i].is_S_ST_StarST = true;
+            }
+        } else {
+            for (size_t i = 0; i < this->trade_data_.size(); i++) {
+                trade_data_[i].is_S_ST_StarST = false;
+            }
+        }
     }
 private:
     void LoadData(const eight_digit_time& beginDate, const std::string& fullfilename) {

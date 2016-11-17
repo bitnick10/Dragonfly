@@ -54,6 +54,18 @@ std::vector<ARBR> ARBRCalculator::GetResult() {
         ret[i].ar = h_o / o_l * 100;
         ret[i].br = bracc0 / bracc1 * 100;
     }
+    for (size_t i = 0; i < stock.trade_data().size(); i++) {
+        if (ret[i].ar < 70) {
+            ret[i].ar_type = ARBR::ARType::Below70;
+            continue;
+        } else if (ret[i].ar < 150) {
+            ret[i].ar_type = ARBR::ARType::Between70150;
+            continue;
+        } else {
+            ret[i].ar_type = ARBR::ARType::Above150;
+            continue;
+        }
+    }
     if (arday1 != nullptr) {
         delete[] arday1;
         arday1 = nullptr;

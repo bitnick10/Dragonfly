@@ -1,8 +1,20 @@
 #pragma once
 
-#include "Stock.h"
-#include "Indicator.h"
+#include <iostream>
+#include <vector>
 
+class Stock;
+
+struct VR {
+    enum VRType {
+        Below100,
+        Between100200,
+        Above200,
+        End
+    };
+    VRType vr_type;
+    float vr;
+};
 class VRCalculator {
 public:
     double * av;
@@ -14,7 +26,7 @@ public:
     unsigned int n;
 
     VRCalculator(const Stock& s, unsigned int n);
-    std::vector<float> Calculate();
+    std::vector<VR> Calculate();
     ~VRCalculator() {
         delete[] av;
         delete[] bv;

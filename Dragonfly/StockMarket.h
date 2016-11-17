@@ -18,7 +18,7 @@ public:
     std::vector<Stock*> index;
 public:
     StockMarket(eight_digit_time beginDate) {
-        std::cout << "StockMarket construct " << beginDate << std::endl;
+        //std::cout << "StockMarket construct " << beginDate << std::endl;
         AddIndex(beginDate);
         AddStocks(beginDate);
         RemoveBadDataStock("600845"); // source data can not use
@@ -41,7 +41,7 @@ public:
             s->InitTradeDataBlock(*index[0]);
         }
 
-        std::cout << "StockMarket construct finished" << std::endl;
+        //std::cout << "StockMarket construct finished" << std::endl;
     }
     void RemoveBadDataStock(const std::string& stock_id) {
         std::vector<std::unique_ptr<Stock>>::iterator iter = this->stocks.begin();

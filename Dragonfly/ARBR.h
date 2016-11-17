@@ -6,6 +6,13 @@
 class Stock;
 
 struct ARBR {
+    enum ARType {
+        Below70,
+        Between70150,
+        Above150,
+        End
+    };
+    ARType ar_type;
     float ar = 0.0;
     float br = 0.0;
 };
