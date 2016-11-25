@@ -45,34 +45,104 @@ using namespace boost::system;
 //};
 #define TRADA_DATA_FLOAT float
 struct TradeData {
-    enum CandleType {
+    enum class SimpleCandleType {
         LittleHollow, // amp < 1%
         LittleFilled,
-        Hollow_NoShadow, // reverse direction less than 10% of the body
-        Hollow_XShortUpperShadow, // 10%-25% of the body
-        Hollow_ShortUpperShadow, // 25%-50% of the body
-        Hollow_MediumUpperShadow, // 50%-100%
-        Hollow_LongUpperShadow, // 100%-200%
-        Hollow_XLongUpperShadow, // above 200%
-        Filled_NoShadow, // reverse direction less than 10% of the body
-        Filled_XShortLowerShadow, // 10%-25% of the body
-        Filled_ShortLowerShadow, // 25%-50% of the body
-        Filled_MediumLowerShadow, // 50%-100%
-        Filled_LongLowerShadow, // 100%-200%
-        Filled_XLongLowerShadow, // above 200%
+        Hollow,
+        Filled,
         End
     };
-    enum CandleTypeClass2 {
-        RealLittleHollow2, // amp < 1%
-        FakeLittleHollow2,
-        RealLittleFilled2,
-        FakeLittleFilled2,
-        RealHollow,
-        FakeHollow,
-        RealFilled,
-        FakeFilled,
-        End2
+    enum class ShadowType {
+        NoShadow, // less than 10% of the body  - 0.5
+        XShortShadow, // 10%-25% of the body    0.5 - 1
+        ShortShadow, // 25%-50% of the body       1-2
+        MediumShadow, // 50%-100%        2-3
+        LongShadow, // 100%-200%      3-5
+        XLongShadow, // above 200%    5-
+        End
     };
+    enum class SimpleShadowType {
+        NoShadow, // less than 10% of the body 0 - 1.0
+        MediumShadow, // 10%-100%              1.0 - 3.0
+        LongShadow, // 100%-200%               3.0-5.0
+        XLongShadow, // above 200%             5.0 -
+        End
+    };
+    enum class CandleType {
+        FakeLittleHollow, // amp < 1%
+        RealLittleHollow,
+        FakeLittleFilled,
+        RealLittleFilled,
+        FakeHollow,
+        RealHollow,
+        FakeFilled,
+        RealFilled,
+        End
+    };
+    static std::string EnumToString(SimpleCandleType em) {
+        if (em == SimpleCandleType::LittleHollow) {
+            return "LittleHollow";
+        }
+        if (em == SimpleCandleType::LittleFilled) {
+            return "LittleFilled";
+        }
+        if (em == SimpleCandleType::Hollow) {
+            return "Hollow";
+        }
+        if (em == SimpleCandleType::Filled) {
+            return "Filled";
+        }
+        return "End";
+    }
+    static std::string EnumToString(ShadowType em) {
+        if (em == ShadowType::NoShadow) {
+            return "NoShadow";
+        }
+        if (em == ShadowType::XShortShadow) {
+            return "XShortShadow";
+        }
+        if (em == ShadowType::ShortShadow) {
+            return "ShortShadow";
+        }
+        if (em == ShadowType::MediumShadow) {
+            return "MediumShadow";
+        }
+        if (em == ShadowType::LongShadow) {
+            return "LongShadow";
+        }
+        if (em == ShadowType::XLongShadow) {
+            return "XLongShadow";
+        }
+        return "End";
+    }
+    static std::string EnumToString(CandleType em) {
+        if (em == CandleType::FakeLittleHollow) {
+            return "FakeLittleHollow";
+        }
+        if (em == CandleType::RealLittleHollow) {
+            return "RealLittleHollow";
+        }
+        if (em == CandleType::FakeLittleFilled) {
+            return "FakeLittleFilled";
+        }
+        if (em == CandleType::RealLittleFilled) {
+            return "RealLittleFilled";
+        }
+        if (em == CandleType::FakeHollow) {
+            return "FakeHollow";
+        }
+        if (em == CandleType::RealHollow) {
+            return "RealHollow";
+        }
+        if (em == CandleType::FakeFilled) {
+            return "FakeFilled";
+        }
+        if (em == CandleType::RealFilled) {
+            return "RealFilled";
+        }
+        return "End";
+    }
+
     TradeData* prev;
     int i; // index self
     year_month_day_hour_min_sec begin_time;
@@ -86,8 +156,11 @@ private:
     TRADA_DATA_FLOAT lower_shadow_amplitude_;
     TRADA_DATA_FLOAT amplitude_;
     TRADA_DATA_FLOAT body_amplitude_;
+    SimpleCandleType simple_candle_type_;
+    ShadowType head_shadow_type_;
+    SimpleShadowType head_simple_shadow_type_;
+    SimpleShadowType tail_simple_shadow_type_;
     CandleType candle_type_;
-    CandleTypeClass2 candle_type_class2_;
     bool can_open_long_position_at_close_price_;
 public: // property
     bool is_stick_up() const {
@@ -111,6 +184,20 @@ public: // property
     TRADA_DATA_FLOAT body_amplitude() const {
         return body_amplitude_;
     }
+    TRADA_DATA_FLOAT head_shadow_amplitude() const {
+        if (is_stick_up()) {
+            return upper_shadow_amplitude();
+        } else {
+            return lower_shadow_amplitude();
+        }
+    }
+    TRADA_DATA_FLOAT tail_shadow_amplitude() const {
+        if (is_stick_up()) {
+            return lower_shadow_amplitude();
+        } else {
+            return upper_shadow_amplitude();
+        }
+    }
     bool has_long_tail() const {
         if (body_amplitude() < 1.0 / 100) {
             if (is_stick_up()) {
@@ -127,8 +214,17 @@ public: // property
     CandleType candle_type() const {
         return candle_type_;
     }
-    CandleTypeClass2 candle_type_class2() const {
-        return candle_type_class2_;
+    SimpleCandleType simple_candle_type() const {
+        return simple_candle_type_;
+    }
+    ShadowType head_shadow_type() const {
+        return head_shadow_type_;
+    }
+    SimpleShadowType head_simple_shadow_type() const {
+        return head_simple_shadow_type_;
+    }
+    SimpleShadowType tail_simple_shadow_type() const {
+        return tail_simple_shadow_type_;
     }
     bool can_open_long_position_at_close_price() const {
         return can_open_long_position_at_close_price_;
@@ -143,87 +239,29 @@ public:
         amplitude_ =  abs(high - low) / open;
         body_amplitude_ = abs(open - close) / open;
         UpdateCandleType();
-        UpdateCandleTypeClass2();
+        UpdateSimpleCandleType();
+        UpdateHeadType();
+        UpdateHeadSimpleShadowType();
+        UpdateTailSimpleShadowType();
         UpdateCanOpenLongPositionAtClosePrice();
     }
 private:
     void UpdateCandleType() {
         if (body_amplitude() < 1.0 / 100) {
             if (is_stick_up()) {
-                candle_type_ = LittleHollow;
-                return;
-            } else {
-                candle_type_ = LittleFilled;
-                return;
-            }
-        } else {
-            if (is_stick_up()) {
-                if (upper_shadow_amplitude() < body_amplitude() * 10.0 / 100) {
-                    candle_type_ = Hollow_NoShadow;
-                    return;
-                }
-                if (upper_shadow_amplitude() < body_amplitude() * 25.0 / 100) {
-                    candle_type_ = Hollow_XShortUpperShadow;
-                    return;
-                }
-                if (upper_shadow_amplitude() < body_amplitude() * 50.0 / 100) {
-                    candle_type_ = Hollow_ShortUpperShadow;
-                    return;
-                }
-                if (upper_shadow_amplitude() < body_amplitude() * 100.0 / 100) {
-                    candle_type_ = Hollow_MediumUpperShadow;
-                    return;
-                }
-                if (upper_shadow_amplitude() < body_amplitude() * 200.0 / 100) {
-                    candle_type_ = Hollow_LongUpperShadow;
-                    return;
-                } else  {
-                    candle_type_ = Hollow_XLongUpperShadow;
-                    return;
-                }
-            } else { // stick filled
-                if (lower_shadow_amplitude() < body_amplitude() * 10.0 / 100) {
-                    candle_type_ = Filled_NoShadow;
-                    return;
-                }
-                if (lower_shadow_amplitude() < body_amplitude() * 25.0 / 100) {
-                    candle_type_ = Filled_XShortLowerShadow;
-                    return;
-                }
-                if (lower_shadow_amplitude() < body_amplitude() * 50.0 / 100) {
-                    candle_type_ = Filled_ShortLowerShadow;
-                    return;
-                }
-                if (lower_shadow_amplitude() < body_amplitude() * 100.0 / 100) {
-                    candle_type_ = Filled_MediumLowerShadow;
-                    return;
-                }
-                if (lower_shadow_amplitude() < body_amplitude() * 200.0 / 100) {
-                    candle_type_ = Filled_LongLowerShadow;
-                    return;
-                } else {
-                    candle_type_ = Filled_XLongLowerShadow;
-                    return;
-                }
-            }
-        }
-    }
-    void UpdateCandleTypeClass2() {
-        if (body_amplitude() < 1.0 / 100) {
-            if (is_stick_up()) {
                 if (is_price_up()) {
-                    candle_type_class2_ = CandleTypeClass2::RealLittleHollow2;
+                    candle_type_ = CandleType::RealLittleHollow;
                     return;
                 } else {
-                    candle_type_class2_ = CandleTypeClass2::FakeLittleHollow2;
+                    candle_type_ = CandleType::FakeLittleHollow;
                     return;
                 }
             } else {
                 if(is_price_down()) {
-                    candle_type_class2_ = CandleTypeClass2::RealLittleFilled2;
+                    candle_type_ = CandleType::RealLittleFilled;
                     return;
                 } else {
-                    candle_type_class2_ = CandleTypeClass2::FakeLittleFilled2;
+                    candle_type_ = CandleType::FakeLittleFilled;
                     return;
                 }
 
@@ -231,20 +269,161 @@ private:
         } else {
             if (is_stick_up()) {
                 if (is_price_up()) {
-                    candle_type_class2_ = CandleTypeClass2::RealHollow;
+                    candle_type_ = CandleType::RealHollow;
                     return;
                 } else {
-                    candle_type_class2_ = CandleTypeClass2::FakeHollow;
+                    candle_type_ = CandleType::FakeHollow;
                     return;
                 }
             } else {
                 if (is_price_down()) {
-                    candle_type_class2_ = CandleTypeClass2::RealFilled;
+                    candle_type_ = CandleType::RealFilled;
                     return;
                 } else {
-                    candle_type_class2_ = CandleTypeClass2::FakeFilled;
+                    candle_type_ = CandleType::FakeFilled;
                     return;
                 }
+            }
+        }
+    }
+    void UpdateSimpleCandleType() {
+        if (body_amplitude() < 1.0 / 100) {
+            if (is_stick_up()) {
+                simple_candle_type_ = SimpleCandleType::LittleHollow;
+                return;
+            } else {
+                simple_candle_type_ = SimpleCandleType::LittleFilled;
+                return;
+            }
+        } else {
+            if (is_stick_up()) {
+                simple_candle_type_ = SimpleCandleType::Hollow;
+                return;
+            } else { // stick filled
+                simple_candle_type_ = SimpleCandleType::Filled;
+                return;
+            }
+        }
+    }
+    void UpdateHeadType() {
+        if (body_amplitude() < 1.0 / 100) {
+            if (upper_shadow_amplitude() <  0.5 / 100) {
+                head_shadow_type_ = ShadowType::NoShadow;
+                return;
+            }
+            if (upper_shadow_amplitude() <  1.0 / 100) {
+                head_shadow_type_ = ShadowType::XShortShadow;
+                return;
+            }
+            if (upper_shadow_amplitude() <  2.0 / 100) {
+                head_shadow_type_ = ShadowType::ShortShadow;
+                return;
+            }
+            if (upper_shadow_amplitude() <  3.0 / 100) {
+                head_shadow_type_ = ShadowType::MediumShadow;
+                return;
+            }
+            if (upper_shadow_amplitude() <  5.0 / 100) {
+                head_shadow_type_ = ShadowType::LongShadow;
+                return;
+            } else {
+                head_shadow_type_ = ShadowType::XLongShadow;
+                return;
+            }
+        } else {
+            if (head_shadow_amplitude() < body_amplitude() * 10.0 / 100) {
+                head_shadow_type_ = ShadowType::NoShadow;
+                return;
+            }
+            if (head_shadow_amplitude() < body_amplitude() * 25.0 / 100) {
+                head_shadow_type_ = ShadowType::XShortShadow;
+                return;
+            }
+            if (head_shadow_amplitude() < body_amplitude() * 50.0 / 100) {
+                head_shadow_type_ = ShadowType::ShortShadow;
+                return;
+            }
+            if (head_shadow_amplitude() < body_amplitude() * 100.0 / 100) {
+                head_shadow_type_ = ShadowType::MediumShadow;
+                return;
+            }
+            if (head_shadow_amplitude() < body_amplitude() * 200.0 / 100) {
+                head_shadow_type_ = ShadowType::LongShadow;
+                return;
+            } else {
+                head_shadow_type_ = ShadowType::XLongShadow;
+                return;
+            }
+        }
+
+    }
+    void UpdateHeadSimpleShadowType() {
+        if (body_amplitude() < 1.0 / 100) {
+            if (upper_shadow_amplitude() <  1.0 / 100) {
+                tail_simple_shadow_type_ = SimpleShadowType::NoShadow;
+                return;
+            }
+            if (upper_shadow_amplitude() <  3.0 / 100) {
+                tail_simple_shadow_type_ = SimpleShadowType::MediumShadow;
+                return;
+            }
+            if (upper_shadow_amplitude() <  5.0 / 100) {
+                tail_simple_shadow_type_ = SimpleShadowType::LongShadow;
+                return;
+            } else {
+                tail_simple_shadow_type_ = SimpleShadowType::XLongShadow;
+                return;
+            }
+        } else {
+            if (head_shadow_amplitude() < body_amplitude() * 10.0 / 100) {
+                tail_simple_shadow_type_ = SimpleShadowType::NoShadow;
+                return;
+            }
+            if (head_shadow_amplitude() < body_amplitude() * 100.0 / 100) {
+                tail_simple_shadow_type_ = SimpleShadowType::MediumShadow;
+                return;
+            }
+            if (head_shadow_amplitude() < body_amplitude() * 200.0 / 100) {
+                tail_simple_shadow_type_ = SimpleShadowType::LongShadow;
+                return;
+            } else {
+                tail_simple_shadow_type_ = SimpleShadowType::XLongShadow;
+                return;
+            }
+        }
+    }
+    void UpdateTailSimpleShadowType() {
+        if (body_amplitude() < 1.0 / 100) {
+            if (lower_shadow_amplitude() <  1.0 / 100) {
+                tail_simple_shadow_type_ = SimpleShadowType::NoShadow;
+                return;
+            }
+            if (lower_shadow_amplitude() <  3.0 / 100) {
+                tail_simple_shadow_type_ = SimpleShadowType::MediumShadow;
+                return;
+            }
+            if (lower_shadow_amplitude() <  5.0 / 100) {
+                tail_simple_shadow_type_ = SimpleShadowType::LongShadow;
+                return;
+            } else {
+                tail_simple_shadow_type_ = SimpleShadowType::XLongShadow;
+                return;
+            }
+        } else {
+            if (tail_shadow_amplitude() < body_amplitude() * 10.0 / 100) {
+                tail_simple_shadow_type_ = SimpleShadowType::NoShadow;
+                return;
+            }
+            if (tail_shadow_amplitude() < body_amplitude() * 100.0 / 100) {
+                tail_simple_shadow_type_ = SimpleShadowType::MediumShadow;
+                return;
+            }
+            if (tail_shadow_amplitude() < body_amplitude() * 200.0 / 100) {
+                tail_simple_shadow_type_ = SimpleShadowType::LongShadow;
+                return;
+            } else {
+                tail_simple_shadow_type_ = SimpleShadowType::XLongShadow;
+                return;
             }
         }
     }

@@ -13,17 +13,16 @@
 
 class QStockMarket : public StockMarket {
 public:
-    // year_month_day_hour_min_sec qtime_now;
-    //year_month_day_hour_min_sec begin_time;
-    //year_month_day_hour_min_sec end_time;
     int now_i;
     int begin_i;
     int end_i; // included
 public:
+    // [beginDate,endDate]
     QStockMarket(eight_digit_time beginDate, eight_digit_time endDate) : StockMarket(beginDate - 100) {
         //this->begin_time = beginDate;
         //this->end_time = endDate;
         //this->qtime_now = beginDate;
+        std::cout << "QStockMarket Construct " << beginDate << " " << endDate << std::endl;
         this->begin_i = index[0]->GetIndex(index[0]->GetLatestTradingTime(beginDate));
         this->end_i = index[0]->GetIndex(index[0]->GetLatestTradingTime(endDate));
         this->now_i = begin_i;
@@ -71,6 +70,7 @@ public:
     double create_price;
     double close_price;
     int number_of_position; // 100(min) 1000 5000
+    std::string comments;
 };
 class QPositionStatistics {
 public:
@@ -120,6 +120,18 @@ public:
                 n++;
                 earn += (p.close_price - p.create_price) / p.create_price;
             }
+        }
+        return earn / n;
+    }
+    double average_revenue_per_trade() {
+        if (number_of_trade() == 0)
+            return 0.0;
+        assert(number_of_trade() > 0);
+        int n = 0;
+        double earn = 0.0;
+        for (auto && p : history) {
+            n++;
+            earn += (p.close_price - p.create_price) / p.create_price;
         }
         return earn / n;
     }
@@ -173,12 +185,19 @@ public:
             temp_money -= p.create_price * p.number_of_position;
             double earn = p.close_price * p.number_of_position;
             temp_money += earn * (1 - commission - tax);
-            report += fmt::format("{0} O {1} {2} {3} {4}\n", p.create_time.ToString(), p.stock_id(), p.stock->name(), p.create_price, p.number_of_position);
+            report += fmt::format("{0} O {1} {2} {3} {4}\n",
+                                  p.create_time.ToString(),
+                                  p.stock_id(),
+                                  p.stock->name(),
+                                  p.create_price,
+                                  p.number_of_position
+                                 );
             report += fmt::format("{0} C {1} {2} {3}", p.close_time.ToString(), p.stock_id(), p.stock->name(), p.close_price);
-            report += fmt::format(" earn {0:.2f}%, fee {1} money {2}\n",
+            report += fmt::format(" earn {0:.2f}%, fee {1} money {2}          {3}\n",
                                   (p.close_price - p.create_price) / p.create_price * 100,
                                   p.close_price * p.number_of_position * (commission + tax),
-                                  temp_money
+                                  temp_money,
+                                  p.comments
                                  );
         }
         report += "------------------------\n";

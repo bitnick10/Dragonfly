@@ -47,7 +47,8 @@ public:
         } else {
             volume_proportion = 1;
         }
-        std::cout << "volume proporttion " << volume_proportion << std::endl;
+        year_month_day_hour_min_sec timeNow;
+        std::cout << timeNow.ToString("%X") << " volume proporttion " << volume_proportion << "   "  << std::endl;
 
         std::vector<std::string> strs;
 
