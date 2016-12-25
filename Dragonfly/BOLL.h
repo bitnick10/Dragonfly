@@ -9,6 +9,9 @@ class Stock;
 
 struct BOLL {
     float mid, upper, lower;
+    float gap_percent() const {
+        return (upper - mid) / mid;
+    }
 };
 
 class BOLLCalculator {

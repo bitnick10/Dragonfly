@@ -73,17 +73,22 @@ public:
             fprintf(stderr, "%s: %s\n", "open", sqlite3_errmsg(db));
             return;
         }
-        const char *zSql = "SELECT code,name,pe FROM basics order by code";
+        const char *zSql = "SELECT code,name,industry,pe FROM basics order by code";
         sqlite3_prepare_v2(db, zSql, -1, &stmt, &zTail);
         r = sqlite3_step(stmt);
         do {
             char* pstr = (char*)sqlite3_column_text(stmt, 0);
             std::string id = pstr;
             std::string name = (char*)sqlite3_column_text(stmt, 1);
-            double pe = sqlite3_column_double(stmt, 2);
+            char* pindustry = (char*)sqlite3_column_text(stmt, 2);
+            std::string industry;
+            if (pindustry != nullptr)
+                industry = pindustry;
+            double pe = sqlite3_column_double(stmt, 3);
             //std::cout << " pe " << pe;
             //name = UTF_82ASCII(name);
             std::unique_ptr<Stock> s(new Stock(id, name, pe, TradeDataType::Day, stockDataBeginDate));
+            s->industry_ = industry;
             stocks.push_back(std::move(s));
         } while (sqlite3_step(stmt) == SQLITE_ROW);
         sqlite3_finalize(stmt);

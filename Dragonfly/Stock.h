@@ -5,6 +5,9 @@
 #include <algorithm>
 #include <ctime>
 #include <string>
+#include <bitset>
+
+using std::bitset;
 
 #include <boost/system/error_code.hpp>
 
@@ -45,14 +48,29 @@ using namespace boost::system;
 //};
 #define TRADA_DATA_FLOAT float
 struct TradeData {
-    enum class SimpleCandleType {
-        LittleHollow, // amp < 1%
-        LittleFilled,
-        Hollow,
-        Filled,
+    enum class SimpleBodyPositionType : uint8_t {
+        Above,
+        In,
+        Below,
         End
     };
-    enum class ShadowType {
+    enum class SimpleBodyBodyPositionType : uint8_t {
+        AboveAbove,// body up above body bottom above
+        AboveIn,
+        InIn,
+        InBelow,
+        BelowBelow,
+        Engulfing,
+        End
+    };
+    // enum class SimpleCandleType : uint8_t {
+    //     LittleHollow, // amp < 1%
+    //     LittleFilled,
+    ////     Hollow,
+    //    Filled,
+    //     End
+    //};
+    enum class ShadowType : uint8_t {
         NoShadow, // less than 10% of the body  - 0.5
         XShortShadow, // 10%-25% of the body    0.5 - 1
         ShortShadow, // 25%-50% of the body       1-2
@@ -61,39 +79,35 @@ struct TradeData {
         XLongShadow, // above 200%    5-
         End
     };
-    enum class SimpleShadowType {
+    enum class SimpleShadowType : uint8_t {
         NoShadow, // less than 10% of the body 0 - 1.0
         MediumShadow, // 10%-100%              1.0 - 3.0
         LongShadow, // 100%-200%               3.0-5.0
         XLongShadow, // above 200%             5.0 -
         End
     };
-    enum class CandleType {
-        FakeLittleHollow, // amp < 1%
-        RealLittleHollow,
-        FakeLittleFilled,
-        RealLittleFilled,
+    enum class CandleType : uint8_t {
         FakeHollow,
         RealHollow,
         FakeFilled,
         RealFilled,
         End
     };
-    static std::string EnumToString(SimpleCandleType em) {
-        if (em == SimpleCandleType::LittleHollow) {
-            return "LittleHollow";
-        }
-        if (em == SimpleCandleType::LittleFilled) {
-            return "LittleFilled";
-        }
-        if (em == SimpleCandleType::Hollow) {
-            return "Hollow";
-        }
-        if (em == SimpleCandleType::Filled) {
-            return "Filled";
-        }
-        return "End";
-    }
+    //static std::string EnumToString(SimpleCandleType em) {
+    //    if (em == SimpleCandleType::LittleHollow) {
+    //        return "LittleHollow";
+    //    }
+    //    if (em == SimpleCandleType::LittleFilled) {
+    //        return "LittleFilled";
+    //    }
+    //    if (em == SimpleCandleType::Hollow) {
+    //        return "Hollow";
+    //    }
+    //    if (em == SimpleCandleType::Filled) {
+    //        return "Filled";
+    //    }
+    //    return "End";
+    //}
     static std::string EnumToString(ShadowType em) {
         if (em == ShadowType::NoShadow) {
             return "NoShadow";
@@ -116,18 +130,6 @@ struct TradeData {
         return "End";
     }
     static std::string EnumToString(CandleType em) {
-        if (em == CandleType::FakeLittleHollow) {
-            return "FakeLittleHollow";
-        }
-        if (em == CandleType::RealLittleHollow) {
-            return "RealLittleHollow";
-        }
-        if (em == CandleType::FakeLittleFilled) {
-            return "FakeLittleFilled";
-        }
-        if (em == CandleType::RealLittleFilled) {
-            return "RealLittleFilled";
-        }
         if (em == CandleType::FakeHollow) {
             return "FakeHollow";
         }
@@ -151,15 +153,16 @@ struct TradeData {
 private:
     bool is_stick_up_;
     bool is_stick_filled_;
+    bool is_high_new_high_or_is_low_new_low_5days_;
+    bool is_high_new_high_5days_;
+    bool is_low_new_low_5days_;
     TRADA_DATA_FLOAT body_up_line_;
+    TRADA_DATA_FLOAT body_bottom_line_;
     TRADA_DATA_FLOAT upper_shadow_amplitude_;
     TRADA_DATA_FLOAT lower_shadow_amplitude_;
     TRADA_DATA_FLOAT amplitude_;
     TRADA_DATA_FLOAT body_amplitude_;
-    SimpleCandleType simple_candle_type_;
-    ShadowType head_shadow_type_;
-    SimpleShadowType head_simple_shadow_type_;
-    SimpleShadowType tail_simple_shadow_type_;
+    //SimpleCandleType simple_candle_type_;
     CandleType candle_type_;
     bool can_open_long_position_at_close_price_;
 public: // property
@@ -169,8 +172,14 @@ public: // property
     bool is_stick_filled() const {
         return is_stick_filled_;
     }
+    bool is_open_jump() const {
+        return abs((open - prev->close) / prev->close) > 1.0 / 100;
+    }
     TRADA_DATA_FLOAT body_up_line() const {
         return body_up_line_;
+    }
+    TRADA_DATA_FLOAT body_bottom_line() const {
+        return body_bottom_line_;
     }
     TRADA_DATA_FLOAT upper_shadow_amplitude() const {
         return upper_shadow_amplitude_;
@@ -183,6 +192,9 @@ public: // property
     }
     TRADA_DATA_FLOAT body_amplitude() const {
         return body_amplitude_;
+    }
+    TRADA_DATA_FLOAT body_amplitude_with_direction() const {
+        return (close - open ) / open;
     }
     TRADA_DATA_FLOAT head_shadow_amplitude() const {
         if (is_stick_up()) {
@@ -211,222 +223,116 @@ public: // property
                 return upper_shadow_amplitude() > body_amplitude();
         }
     }
+    SimpleBodyBodyPositionType body_body_position_type() const {
+        if (prev == nullptr)
+            return SimpleBodyBodyPositionType::End;
+        if (body_up_line() > prev->body_up_line() && body_bottom_line() > prev->body_up_line())
+            return SimpleBodyBodyPositionType::AboveAbove;
+        if (body_up_line() > prev->body_up_line() && prev->is_price_in_body(body_bottom_line()))
+            return SimpleBodyBodyPositionType::AboveIn;
+        if (prev->is_price_in_body(body_up_line()) && prev->is_price_in_body(body_bottom_line()))
+            return SimpleBodyBodyPositionType::InIn;
+        if (prev->is_price_in_body(body_up_line()) && body_bottom_line() < prev->body_bottom_line())
+            return SimpleBodyBodyPositionType::InBelow;
+        if (body_up_line() < prev->body_bottom_line() && body_bottom_line() < prev->body_bottom_line())
+            return SimpleBodyBodyPositionType::BelowBelow;
+        if (body_up_line() > prev->body_up_line() && body_bottom_line() < prev->body_bottom_line())
+            return SimpleBodyBodyPositionType::Engulfing;
+        return SimpleBodyBodyPositionType::End;
+    }
+    // open close price inclued
+    bool is_price_in_body(TRADA_DATA_FLOAT price) const {
+        return (body_bottom_line() <= price && price <= body_up_line());
+    }
+    SimpleBodyPositionType open_type() const {
+        if (prev != nullptr) {
+            return GetSimpleBodyPositionType(*prev, open);
+        } else
+            return SimpleBodyPositionType::End;
+    }
+    SimpleBodyPositionType close_type() const {
+        if (prev != nullptr) {
+            return GetSimpleBodyPositionType(*prev, close);
+        } else
+            return SimpleBodyPositionType::End;
+    }
     CandleType candle_type() const {
         return candle_type_;
     }
-    SimpleCandleType simple_candle_type() const {
-        return simple_candle_type_;
-    }
-    ShadowType head_shadow_type() const {
-        return head_shadow_type_;
-    }
-    SimpleShadowType head_simple_shadow_type() const {
-        return head_simple_shadow_type_;
-    }
-    SimpleShadowType tail_simple_shadow_type() const {
-        return tail_simple_shadow_type_;
-    }
+    // SimpleCandleType simple_candle_type() const {
+    //    return simple_candle_type_;
+    // }
     bool can_open_long_position_at_close_price() const {
         return can_open_long_position_at_close_price_;
+    }
+    double volume_ratio() const {
+        return volume / prev->volume;
     }
 public:
     void Update() {
         is_stick_up_ = close > open;
         is_stick_filled_ = close < open;
         body_up_line_ = MAX(open, close);
+        body_bottom_line_ = MIN(open, close);
         upper_shadow_amplitude_ = (high - body_up_line()) / open;
         lower_shadow_amplitude_ = (MIN(open, close) - low) / open;
         amplitude_ =  abs(high - low) / open;
         body_amplitude_ = abs(open - close) / open;
         UpdateCandleType();
-        UpdateSimpleCandleType();
-        UpdateHeadType();
-        UpdateHeadSimpleShadowType();
-        UpdateTailSimpleShadowType();
+        //UpdateSimpleCandleType();
         UpdateCanOpenLongPositionAtClosePrice();
+        is_high_new_high_or_is_low_new_low_5days_ = is_high_new_high(5) || is_low_new_low(5);
+        is_high_new_high_5days_ = is_high_new_high(5);
+        is_low_new_low_5days_ = is_low_new_low(5);
     }
 private:
+    SimpleBodyPositionType GetSimpleBodyPositionType(const TradeData& d, TRADA_DATA_FLOAT price) const {
+        if (price - d.body_up_line() > 0.0001)
+            return SimpleBodyPositionType::Above;
+        else if (price - d.body_bottom_line() < -0.0001) {
+            return SimpleBodyPositionType::Below;
+        } else {
+            return SimpleBodyPositionType::In;
+        }
+    }
     void UpdateCandleType() {
-        if (body_amplitude() < 1.0 / 100) {
-            if (is_stick_up()) {
-                if (is_price_up()) {
-                    candle_type_ = CandleType::RealLittleHollow;
-                    return;
-                } else {
-                    candle_type_ = CandleType::FakeLittleHollow;
-                    return;
-                }
-            } else {
-                if(is_price_down()) {
-                    candle_type_ = CandleType::RealLittleFilled;
-                    return;
-                } else {
-                    candle_type_ = CandleType::FakeLittleFilled;
-                    return;
-                }
-
-            }
-        } else {
-            if (is_stick_up()) {
-                if (is_price_up()) {
-                    candle_type_ = CandleType::RealHollow;
-                    return;
-                } else {
-                    candle_type_ = CandleType::FakeHollow;
-                    return;
-                }
-            } else {
-                if (is_price_down()) {
-                    candle_type_ = CandleType::RealFilled;
-                    return;
-                } else {
-                    candle_type_ = CandleType::FakeFilled;
-                    return;
-                }
-            }
-        }
-    }
-    void UpdateSimpleCandleType() {
-        if (body_amplitude() < 1.0 / 100) {
-            if (is_stick_up()) {
-                simple_candle_type_ = SimpleCandleType::LittleHollow;
+        if (is_stick_up()) {
+            if (is_price_up()) {
+                candle_type_ = CandleType::RealHollow;
                 return;
             } else {
-                simple_candle_type_ = SimpleCandleType::LittleFilled;
+                candle_type_ = CandleType::FakeHollow;
                 return;
             }
         } else {
-            if (is_stick_up()) {
-                simple_candle_type_ = SimpleCandleType::Hollow;
+            if (is_price_down()) {
+                candle_type_ = CandleType::RealFilled;
                 return;
-            } else { // stick filled
-                simple_candle_type_ = SimpleCandleType::Filled;
+            } else {
+                candle_type_ = CandleType::FakeFilled;
                 return;
             }
         }
     }
-    void UpdateHeadType() {
-        if (body_amplitude() < 1.0 / 100) {
-            if (upper_shadow_amplitude() <  0.5 / 100) {
-                head_shadow_type_ = ShadowType::NoShadow;
-                return;
-            }
-            if (upper_shadow_amplitude() <  1.0 / 100) {
-                head_shadow_type_ = ShadowType::XShortShadow;
-                return;
-            }
-            if (upper_shadow_amplitude() <  2.0 / 100) {
-                head_shadow_type_ = ShadowType::ShortShadow;
-                return;
-            }
-            if (upper_shadow_amplitude() <  3.0 / 100) {
-                head_shadow_type_ = ShadowType::MediumShadow;
-                return;
-            }
-            if (upper_shadow_amplitude() <  5.0 / 100) {
-                head_shadow_type_ = ShadowType::LongShadow;
-                return;
-            } else {
-                head_shadow_type_ = ShadowType::XLongShadow;
-                return;
-            }
-        } else {
-            if (head_shadow_amplitude() < body_amplitude() * 10.0 / 100) {
-                head_shadow_type_ = ShadowType::NoShadow;
-                return;
-            }
-            if (head_shadow_amplitude() < body_amplitude() * 25.0 / 100) {
-                head_shadow_type_ = ShadowType::XShortShadow;
-                return;
-            }
-            if (head_shadow_amplitude() < body_amplitude() * 50.0 / 100) {
-                head_shadow_type_ = ShadowType::ShortShadow;
-                return;
-            }
-            if (head_shadow_amplitude() < body_amplitude() * 100.0 / 100) {
-                head_shadow_type_ = ShadowType::MediumShadow;
-                return;
-            }
-            if (head_shadow_amplitude() < body_amplitude() * 200.0 / 100) {
-                head_shadow_type_ = ShadowType::LongShadow;
-                return;
-            } else {
-                head_shadow_type_ = ShadowType::XLongShadow;
-                return;
-            }
-        }
-
-    }
-    void UpdateHeadSimpleShadowType() {
-        if (body_amplitude() < 1.0 / 100) {
-            if (upper_shadow_amplitude() <  1.0 / 100) {
-                tail_simple_shadow_type_ = SimpleShadowType::NoShadow;
-                return;
-            }
-            if (upper_shadow_amplitude() <  3.0 / 100) {
-                tail_simple_shadow_type_ = SimpleShadowType::MediumShadow;
-                return;
-            }
-            if (upper_shadow_amplitude() <  5.0 / 100) {
-                tail_simple_shadow_type_ = SimpleShadowType::LongShadow;
-                return;
-            } else {
-                tail_simple_shadow_type_ = SimpleShadowType::XLongShadow;
-                return;
-            }
-        } else {
-            if (head_shadow_amplitude() < body_amplitude() * 10.0 / 100) {
-                tail_simple_shadow_type_ = SimpleShadowType::NoShadow;
-                return;
-            }
-            if (head_shadow_amplitude() < body_amplitude() * 100.0 / 100) {
-                tail_simple_shadow_type_ = SimpleShadowType::MediumShadow;
-                return;
-            }
-            if (head_shadow_amplitude() < body_amplitude() * 200.0 / 100) {
-                tail_simple_shadow_type_ = SimpleShadowType::LongShadow;
-                return;
-            } else {
-                tail_simple_shadow_type_ = SimpleShadowType::XLongShadow;
-                return;
-            }
-        }
-    }
-    void UpdateTailSimpleShadowType() {
-        if (body_amplitude() < 1.0 / 100) {
-            if (lower_shadow_amplitude() <  1.0 / 100) {
-                tail_simple_shadow_type_ = SimpleShadowType::NoShadow;
-                return;
-            }
-            if (lower_shadow_amplitude() <  3.0 / 100) {
-                tail_simple_shadow_type_ = SimpleShadowType::MediumShadow;
-                return;
-            }
-            if (lower_shadow_amplitude() <  5.0 / 100) {
-                tail_simple_shadow_type_ = SimpleShadowType::LongShadow;
-                return;
-            } else {
-                tail_simple_shadow_type_ = SimpleShadowType::XLongShadow;
-                return;
-            }
-        } else {
-            if (tail_shadow_amplitude() < body_amplitude() * 10.0 / 100) {
-                tail_simple_shadow_type_ = SimpleShadowType::NoShadow;
-                return;
-            }
-            if (tail_shadow_amplitude() < body_amplitude() * 100.0 / 100) {
-                tail_simple_shadow_type_ = SimpleShadowType::MediumShadow;
-                return;
-            }
-            if (tail_shadow_amplitude() < body_amplitude() * 200.0 / 100) {
-                tail_simple_shadow_type_ = SimpleShadowType::LongShadow;
-                return;
-            } else {
-                tail_simple_shadow_type_ = SimpleShadowType::XLongShadow;
-                return;
-            }
-        }
-    }
+    //void UpdateSimpleCandleType() {
+    //    if (body_amplitude() < 1.0 / 100) {
+    //        if (is_stick_up()) {
+    //            simple_candle_type_ = SimpleCandleType::LittleHollow;
+    //            return;
+    //        } else {
+    //            simple_candle_type_ = SimpleCandleType::LittleFilled;
+    //            return;
+    //        }
+    //    } else {
+    //        if (is_stick_up()) {
+    //            simple_candle_type_ = SimpleCandleType::Hollow;
+    //            return;
+    //        } else { // stick filled
+    //            simple_candle_type_ = SimpleCandleType::Filled;
+    //            return;
+    //        }
+    //    }
+    //}
     void UpdateCanOpenLongPositionAtClosePrice() {
         if (abs(high - low) < 0.001) {
             can_open_long_position_at_close_price_ = false;
@@ -452,6 +358,31 @@ public:
                 return false;
         }
         return true;
+    }
+    bool is_high_new_high(int n) const {
+        TradeData* past = this->prev;
+        for (int i = 0; i < n && (past != nullptr); i++, past = past->prev) {
+            if (high < past->high)
+                return false;
+        }
+        return true;
+    }
+    bool is_low_new_low(int n) const {
+        TradeData* past = this->prev;
+        for (int i = 0; i < n && (past != nullptr); i++, past = past->prev) {
+            if (low > past->low)
+                return false;
+        }
+        return true;
+    }
+    bool is_high_new_high_or_is_low_new_low_5days() const {
+        return is_high_new_high_or_is_low_new_low_5days_;
+    }
+    bool is_high_new_high_5days() const {
+        return is_high_new_high_5days_;
+    }
+    bool is_low_new_low_5days() const {
+        return is_low_new_low_5days_;
     }
     bool is_open_higher_than_prev_high() const {
         return open > prev->high;
@@ -538,6 +469,59 @@ public:
         return !is_volume_increase(percent);
     }
 };
+
+struct SakataValuesPart1 {
+    enum ss {
+        SakataValuesPart1BitsN = 12
+    };
+    union {
+        struct {
+            // 3bit may cause padding by system
+            // please put them padded like 2 2 4     4 2 2  no 424
+            TradeData::SimpleBodyBodyPositionType body_body_position_type_today: 4;
+            TradeData::CandleType candle_type_yesterday : 4;
+            TradeData::CandleType candle_type_before_yesterday : 4;
+        };
+        uint32_t bits = 0;
+    };
+};
+struct SakataValuesPart1Switch {
+    union {
+        struct {
+            uint8_t body_body_position_type_today : 4;
+            uint8_t candle_type_yesterday : 4;
+            uint8_t candle_type_before_yesterday : 4;
+        };
+        uint32_t bits = 0;
+    };
+};
+
+
+
+
+
+
+
+struct SakataValuesPart2 {
+    enum SakataValuesPart2Enum {
+        SakataValuesPart2BitsN = 10
+    };
+    union {
+        struct {
+            bool today_is_stick_up : 1;
+            bool today_is_j_gt_k : 1;
+            bool today_is_high_new_high_5days : 1;
+            bool today_is_low_new_low_5days : 1;
+            bool today_is_ma20_up : 1;
+            bool today_is_ma60_up : 1;
+            bool yesterday_is_high_new_high_5days : 1;
+            bool yesterday_is_low_new_low_5days : 1;
+            bool before_yesterday_is_high_new_high_5days : 1;
+            bool before_yesterday_is_low_new_low_5days : 1;
+        };
+        uint32_t bits = 0;
+    };
+};
 enum class TradeDataType {
     Day,
     OneMinute,
@@ -561,10 +545,10 @@ public:
         std::vector<VR> vr_;
         std::vector<float> asi_;
         std::vector<ARBR> arbr_;
-        //std::vector<float> ma5_;
+        std::vector<float> ma5_;
         //std::vector<float> ma10_;
-        //std::vector<float> ma20_;
-        //std::vector<float> ma60_;
+        std::vector<float> ma20_;
+        std::vector<float> ma60_;
         //Indicators(const Stock& owner) {
         //}
         const std::vector<float>& rsi5() const {
@@ -603,20 +587,20 @@ public:
         const std::vector<float>& asi() const {
             return asi_;
         }
-        /*  const std::vector<float>& ma5() const {
-              return ma5_;
-          }
-          const std::vector<float>& ma10() const {
-              return ma10_;
-          }
-          const std::vector<float>& ma20() const {
-              return ma20_;
-          }
-          const std::vector<float>& ma60() const {
-              return ma60_;
-          }*/
+        const std::vector<float>& ma5() const {
+            return ma5_;
+        }
+        /*const std::vector<float>& ma10() const {
+            return ma10_;
+        }*/
+        const std::vector<float>& ma20() const {
+            return ma20_;
+        }
+        const std::vector<float>& ma60() const {
+            return ma60_;
+        }
         void InitKDJ(int n);
-        // void InitMA();
+        void InitMA();
         void InitDMI(int n1, int n2);
         void Update();
     };
@@ -634,8 +618,14 @@ protected:
     float pe_;
     TradeDataType trade_data_type_;
     std::vector<TradeData> trade_data_;
+    std::vector<SakataValuesPart1> sakata_values_part1_;
+    std::vector<SakataValuesPart2> sakata_values_part2_;
     std::vector<const TradeData*> trade_data_block_;
 public: // property
+    std::string industry_;
+    const std::string& industry() const {
+        return industry_;
+    }
     const std::string& id() const {
         return id_;
     }
@@ -650,6 +640,12 @@ public: // property
     }
     const std::vector<TradeData>& trade_data() const {
         return trade_data_;
+    }
+    const std::vector<SakataValuesPart1>& sakata_values_part1() const {
+        return sakata_values_part1_;
+    }
+    const std::vector<SakataValuesPart2>& sakata_values_part2() const {
+        return sakata_values_part2_;
     }
     // use for fast access
     // please init it first by call InitTradeDataBlock
@@ -692,6 +688,48 @@ public:
     }
     void UpdateIndicators() {
         indicators_.Update();
+
+        // update sakata values
+        if (this->trade_data().size() < 10)
+            return;
+
+        sakata_values_part1_.clear();
+        sakata_values_part1_.reserve(this->trade_data_.size());
+        for (size_t i = 0; i < this->trade_data_.size(); i++) {
+            SakataValuesPart1 sv;
+            sakata_values_part1_.push_back(sv);
+        }
+        assert(sizeof(sakata_values_part1_[0].bits) == 4);
+        sakata_values_part1_[0].bits = 0xffff; // this values is invalid
+        sakata_values_part1_[1].bits = 0xffff;
+        for (size_t i = 2; i < this->trade_data_.size(); i++) {
+            sakata_values_part1_[i].body_body_position_type_today = this->trade_data()[i].body_body_position_type();
+            sakata_values_part1_[i].candle_type_yesterday = this->trade_data()[i - 1].candle_type();
+            sakata_values_part1_[i].candle_type_before_yesterday = this->trade_data()[i - 2].candle_type();
+        }
+        assert(sakata_values_part1_.size() >= 5);
+
+        sakata_values_part2_.clear();
+        sakata_values_part2_.reserve(this->trade_data_.size());
+        for (size_t i = 0; i < this->trade_data_.size(); i++) {
+            SakataValuesPart2 sv;
+            sakata_values_part2_.push_back(sv);
+        }
+        assert(sizeof(sakata_values_part2_[0].bits) == 4);
+        sakata_values_part2_[0].bits = 0xffff; // this values is invalid
+        sakata_values_part2_[1].bits = 0xffff;
+        for (size_t i = 2; i < this->trade_data_.size(); i++) {
+            sakata_values_part2_[i].today_is_stick_up                       = this->trade_data()[i].is_stick_up();
+            sakata_values_part2_[i].today_is_j_gt_k                         = this->indicators().kdj()[i].j > this->indicators().kdj()[i].k;
+            sakata_values_part2_[i].today_is_high_new_high_5days            = this->trade_data()[i].is_high_new_high(5);
+            sakata_values_part2_[i].today_is_low_new_low_5days              = this->trade_data()[i].is_low_new_low(5);
+            sakata_values_part2_[i].today_is_ma20_up                        = this->indicators().ma20()[i] > this->indicators().ma20()[i - 1];
+            sakata_values_part2_[i].today_is_ma60_up                        = this->indicators().ma60()[i] > this->indicators().ma60()[i - 1];
+            sakata_values_part2_[i].yesterday_is_high_new_high_5days        = this->trade_data()[i - 1].is_high_new_high(5);
+            sakata_values_part2_[i].yesterday_is_low_new_low_5days          = this->trade_data()[i - 1].is_low_new_low(5);
+            sakata_values_part2_[i].before_yesterday_is_high_new_high_5days = this->trade_data()[i - 2].is_high_new_high(5);
+            sakata_values_part2_[i].before_yesterday_is_low_new_low_5days   = this->trade_data()[i - 2].is_low_new_low(5);
+        }
     }
     void UpdateDataLink() {
         if (trade_data().empty())
