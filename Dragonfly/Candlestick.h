@@ -3,11 +3,14 @@
 #include <iostream>
 #include <assert.h>
 
+#define FMT_HEADER_ONLY
+#include "fmt\format.h"
+
 #include "DateTime.h"
 
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))
-#define MIN3(a,b) MIN(MIN(a,b),c)
+#define MIN3(a,b,c) MIN(MIN(a,b),c)
 #define MAX3(a,b,c) MAX(MAX(a,b),c)
 
 #define TRADA_DATA_FLOAT float
@@ -55,50 +58,50 @@ struct Candlestick {
     Candlestick* prev;
     int i; // index self
     DateTime trade_time;
-    TRADA_DATA_FLOAT open, close, high, low, volume;
-    bool is_S_ST_StarST;
+    TRADA_DATA_FLOAT open = 0, close = 0, high = 0, low = 0, volume = 0;
+    //bool is_S_ST_StarST;
 private:
-    bool is_stick_up_;
-    bool is_stick_filled_;
-    bool is_high_new_high_or_is_low_new_low_5days_;
-    bool is_high_new_high_5days_;
-    bool is_low_new_low_5days_;
-    TRADA_DATA_FLOAT body_up_line_;
-    TRADA_DATA_FLOAT body_bottom_line_;
-    TRADA_DATA_FLOAT upper_shadow_amplitude_;
-    TRADA_DATA_FLOAT lower_shadow_amplitude_;
-    TRADA_DATA_FLOAT amplitude_;
-    TRADA_DATA_FLOAT body_amplitude_;
+    //bool is_stick_up_;
+    //bool is_stick_filled_;
+    //bool is_high_new_high_or_is_low_new_low_5days_;
+    //bool is_high_new_high_5days_;
+    //bool is_low_new_low_5days_;
+    //TRADA_DATA_FLOAT body_up_line_;
+    //TRADA_DATA_FLOAT body_bottom_line_;
+    //TRADA_DATA_FLOAT upper_shadow_amplitude_;
+    //TRADA_DATA_FLOAT lower_shadow_amplitude_;
+    //TRADA_DATA_FLOAT amplitude_;
+    //TRADA_DATA_FLOAT body_amplitude_;
     //SimpleCandleType simple_candle_type_;
-    CandleType candle_type_;
-    bool can_open_long_position_at_close_price_;
+    //CandleType candle_type_;
+    //bool can_open_long_position_at_close_price_;
 public: // property
     bool is_stick_up() const {
-        return is_stick_up_;
+        return close > open;
     }
     bool is_stick_filled() const {
-        return is_stick_filled_;
+        return close < open;
     }
     bool is_open_jump() const {
         return abs((open - prev->close) / prev->close) > 1.0 / 100;
     }
     TRADA_DATA_FLOAT body_up_line() const {
-        return body_up_line_;
+        return MAX(open, close);
     }
     TRADA_DATA_FLOAT body_bottom_line() const {
-        return body_bottom_line_;
+        return MIN(open, close);
     }
     TRADA_DATA_FLOAT upper_shadow_amplitude() const {
-        return upper_shadow_amplitude_;
+        return (high - body_up_line()) / open;
     }
     TRADA_DATA_FLOAT lower_shadow_amplitude() const {
-        return lower_shadow_amplitude_;
+        return (MIN(open, close) - low) / open;
     }
     TRADA_DATA_FLOAT amplitude() const {
-        return amplitude_;
+        return  abs(high - low) / open;
     }
     TRADA_DATA_FLOAT body_amplitude() const {
-        return body_amplitude_;
+        return abs(open - close) / open;
     }
     TRADA_DATA_FLOAT body_amplitude_with_direction() const {
         return (close - open) / open;
@@ -176,35 +179,39 @@ public: // property
         } else
             return SimpleBodyPositionType::End;
     }
-    CandleType candle_type() const {
-        return candle_type_;
-    }
+    /* CandleType candle_type() const {
+         return candle_type_;
+     }*/
     // SimpleCandleType simple_candle_type() const {
     //    return simple_candle_type_;
     // }
-    bool can_open_long_position_at_close_price() const {
-        return can_open_long_position_at_close_price_;
-    }
+    /* bool can_open_long_position_at_close_price() const {
+         return can_open_long_position_at_close_price_;
+     }*/
     double volume_ratio() const {
         return volume / prev->volume;
     }
 public:
-    void Update() {
-        is_stick_up_ = close > open;
-        is_stick_filled_ = close < open;
-        body_up_line_ = MAX(open, close);
-        body_bottom_line_ = MIN(open, close);
-        upper_shadow_amplitude_ = (high - body_up_line()) / open;
-        lower_shadow_amplitude_ = (MIN(open, close) - low) / open;
-        amplitude_ = abs(high - low) / open;
-        body_amplitude_ = abs(open - close) / open;
-        UpdateCandleType();
-        //UpdateSimpleCandleType();
-        UpdateCanOpenLongPositionAtClosePrice();
-        is_high_new_high_or_is_low_new_low_5days_ = is_high_new_high(5) || is_low_new_low(5);
-        is_high_new_high_5days_ = is_high_new_high(5);
-        is_low_new_low_5days_ = is_low_new_low(5);
+    std::string ToString() const {
+        std::string ret = fmt::format("{0} {1:.2f} {2:.2f} {3:.2f} {4:.2f}", trade_time.ToString(), open, close, high, low);
+        return ret;
     }
+    //void Update() {
+    //    is_stick_up_ = close > open;
+    //    is_stick_filled_ = close < open;
+    //    body_up_line_ = MAX(open, close);
+    //    body_bottom_line_ = MIN(open, close);
+    //    upper_shadow_amplitude_ = (high - body_up_line()) / open;
+    //    lower_shadow_amplitude_ = (MIN(open, close) - low) / open;
+    //    amplitude_ = abs(high - low) / open;
+    //    body_amplitude_ = abs(open - close) / open;
+    //    UpdateCandleType();
+    //    //UpdateSimpleCandleType();
+    //    UpdateCanOpenLongPositionAtClosePrice();
+    //    is_high_new_high_or_is_low_new_low_5days_ = is_high_new_high(5) || is_low_new_low(5);
+    //    is_high_new_high_5days_ = is_high_new_high(5);
+    //    is_low_new_low_5days_ = is_low_new_low(5);
+    //}
 private:
     SimpleBodyPositionType GetSimpleBodyPositionType(const Candlestick& d, TRADA_DATA_FLOAT price) const {
         if (price - d.body_up_line() > 0.0001)
@@ -215,25 +222,25 @@ private:
             return SimpleBodyPositionType::In;
         }
     }
-    void UpdateCandleType() {
-        if (is_stick_up()) {
-            if (is_price_up()) {
-                candle_type_ = CandleType::RealHollow;
-                return;
-            } else {
-                candle_type_ = CandleType::FakeHollow;
-                return;
-            }
-        } else {
-            if (is_price_down()) {
-                candle_type_ = CandleType::RealFilled;
-                return;
-            } else {
-                candle_type_ = CandleType::FakeFilled;
-                return;
-            }
-        }
-    }
+    /* void UpdateCandleType() {
+         if (is_stick_up()) {
+             if (is_price_up()) {
+                 candle_type_ = CandleType::RealHollow;
+                 return;
+             } else {
+                 candle_type_ = CandleType::FakeHollow;
+                 return;
+             }
+         } else {
+             if (is_price_down()) {
+                 candle_type_ = CandleType::RealFilled;
+                 return;
+             } else {
+                 candle_type_ = CandleType::FakeFilled;
+                 return;
+             }
+         }
+     }*/
     //void UpdateSimpleCandleType() {
     //    if (body_amplitude() < 1.0 / 100) {
     //        if (is_stick_up()) {
@@ -253,7 +260,7 @@ private:
     //        }
     //    }
     //}
-    void UpdateCanOpenLongPositionAtClosePrice() {
+    /*void UpdateCanOpenLongPositionAtClosePrice() {
         if (abs(high - low) < 0.001) {
             can_open_long_position_at_close_price_ = false;
             return;
@@ -267,7 +274,7 @@ private:
             return;
         }
         can_open_long_position_at_close_price_ = true;
-    }
+    }*/
 public:
     Candlestick() {
     }
@@ -295,15 +302,15 @@ public:
         }
         return true;
     }
-    bool is_high_new_high_or_is_low_new_low_5days() const {
-        return is_high_new_high_or_is_low_new_low_5days_;
-    }
-    bool is_high_new_high_5days() const {
-        return is_high_new_high_5days_;
-    }
-    bool is_low_new_low_5days() const {
-        return is_low_new_low_5days_;
-    }
+    /* bool is_high_new_high_or_is_low_new_low_5days() const {
+         return is_high_new_high_or_is_low_new_low_5days_;
+     }
+     bool is_high_new_high_5days() const {
+         return is_high_new_high_5days_;
+     }
+     bool is_low_new_low_5days() const {
+         return is_low_new_low_5days_;
+     }*/
     bool is_open_higher_than_prev_high() const {
         return open > prev->high;
     }
