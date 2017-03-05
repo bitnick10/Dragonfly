@@ -8,123 +8,123 @@
 #include "MACD.h"
 #define FMT_HEADER_ONLY
 #include "fmt\format.h"
+#include "Chart.h"
 
 enum class TradeDataPeriod {
-    Day,
     Minutes5,
     Minutes15,
-    Minutes30
+    Minutes30,
+    Minutes60,
+    Day,
+    End
 };
-class Chart {
-    std::vector<Candlestick> sticks_;
-    std::map<std::string, std::vector<MACD>> macds_;
-    std::map<std::string, std::vector<KDJ>> kdjs_;
-public:
-    Chart() {}
-    void FillSticks(std::vector<Candlestick>& src) {
-        sticks_ = src;
+inline std::string EnumToString(TradeDataPeriod p) {
+    switch (p) {
+    case TradeDataPeriod::Minutes5:
+        return "m5";
+    case TradeDataPeriod::Minutes15:
+        return "m15";
+    case TradeDataPeriod::Minutes30:
+        return "m30";
+    case TradeDataPeriod::Minutes60:
+        return "m60";
+    case TradeDataPeriod::Day:
+        return "day";
+    case TradeDataPeriod::End:
+        return "end";
+    default:
+        return "default";
     }
-    const std::vector<Candlestick>& sticks() const {
-        return sticks_;
-    }
-    int GetIndex(const DateTime& time) const {
-        for (size_t i = 0; i < this->sticks().size(); i++) {
-            if (this->sticks()[i].trade_time == time)
-                return i;
-        }
-        return -1;
-    }
-    double Hn(int data_i, int n) const {
-        assert(this->sticks().size() > 1);
-        double max = this->sticks()[data_i].high;
-        int begin = data_i - n + 1;
-        begin = MAX(0, begin);
-        for (int i = begin; i <= data_i; i++ ) {
-            if (this->sticks()[i].high > max) {
-                max = this->sticks()[i].high;
-            }
-        }
-        return max;
-    }
-    double Ln(int data_i, int n) const {
-        assert(this->sticks().size() > 1);
-        double min = this->sticks()[data_i].low;
-        int begin = data_i - n + 1;
-        begin = MAX(0, begin);
-        for (int i = begin; i <= data_i; i++) {
-            if (this->sticks()[i].low < min) {
-                min = this->sticks()[i].low;
-            }
-        }
-        return min;
-    }
-    std::vector<double> RawStochasticValues(int n) const {
-        std::vector<double> rsvs;// = new std::vector<double>(this.tradeData.length);
-        if (sticks_.size() == 0)
-            return rsvs;
-        rsvs.resize(this->sticks().size());
-
-        for (size_t i = 0; i < this->sticks().size(); i++) {
-            double hn = this->Hn(i, n);
-            double ln = this->Ln(i, n);
-            double C = this->sticks()[i].close;
-            double rsv = (C - ln) / (hn - ln) * 100;
-            if (hn - ln == 0.0)
-                rsv = 0.0;
-            if (rsv < 0) {
-                // print("rsv < 0 at ${i} ${tradeData[i].tradeTime} high:${hn} low:${ln} C:${C}");
-                assert(0 > 1);
-            }
-            rsvs[i] = rsv;
-        }
-        return rsvs;
-    }
-    const std::vector<MACD>& macd(int short_n, int long_n, int dea_n) {
-        std::string id = fmt::format("MACD({0},{1},{2})", short_n, long_n, dea_n);
-        if (macds_.find(id) == macds_.end()) {
-            std::vector<MACD> macdnnn = MACDCalculator::GetResult(*this, short_n, long_n, dea_n);
-            //macds_.insert(std::map<std::string, std::vector<MACD>>::value_type(id, macdnnn));
-            macds_[id] = macdnnn;
-            return macds_[id];
-        } else {
-            return macds_[id];
-        }
-    }
-    const std::vector<KDJ>& kdj(int n, int sn1, int sn2) {
-        std::string id = fmt::format("KDJ({0},{1},{2})", n, sn1, sn2);
-        if (kdjs_.find(id) == kdjs_.end()) {
-            std::vector<KDJ> kdjnnn = KDJCalculator::GetResult(*this, n, sn1, sn2 );
-            //macds_.insert(std::map<std::string, std::vector<MACD>>::value_type(id, macdnnn));
-            kdjs_[id] = kdjnnn;
-            return kdjs_[id];
-        } else {
-            return kdjs_[id];
-        }
-    }
-};
+}
 
 class Trade {
 protected:
-    std::map<TradeDataPeriod, Chart> charts_;
+    std::vector<std::unique_ptr<Chart>> charts_;
 public:
     Trade() {
     }
-    std::map<TradeDataPeriod, Chart>& charts() {
+    std::vector<std::unique_ptr<Chart>>& charts() {
         return charts_;
     }
+    Chart* chart(int minutes) {
+        if(minutes == 5)
+            return charts_[(int)TradeDataPeriod::Minutes5].get();
+        if (minutes == 15)
+            return charts_[(int)TradeDataPeriod::Minutes15].get();
+        if (minutes == 30)
+            return charts_[(int)TradeDataPeriod::Minutes30].get();
+        if (minutes == 60)
+            return charts_[(int)TradeDataPeriod::Minutes60].get();
+        if (minutes == 1440)
+            return charts_[(int)TradeDataPeriod::Day].get();
+        assert(false);
+        return nullptr;
+    }
+    Chart* chart(TradeDataPeriod period) {
+        return charts_[(int)period].get();
+    }
     void UpdateCharts() {
-        if (charts_.find(TradeDataPeriod::Minutes5) != charts_.end()) {
-            // Chart chart;
-            std::vector<Candlestick> sticks15minutes;
-            const std::vector<Candlestick>& sticks5min = this->charts()[TradeDataPeriod::Minutes5].sticks();
-            for (size_t i = 0; i < sticks5min.size(); i += 3) {
-                Candlestick newStick1 = Combine(sticks5min[i], sticks5min[i + 1]);
-                Candlestick newStick = Combine(newStick1, sticks5min[i + 2]);
-                sticks15minutes.push_back(newStick);
-            }
-            charts_[TradeDataPeriod::Minutes15].FillSticks(sticks15minutes);
-        } else {
+        return;
+        if (chart(5) == nullptr) {
             assert(false);
         }
+
+        std::vector<Candlestick> sticks15minutes;
+        const std::vector<Candlestick>& sticks5min = this->chart(5)->sticks();
+        for (size_t i = 0; i < sticks5min.size(); i += 3) {
+            Candlestick newStick1 = Combine(sticks5min[i], sticks5min[i + 1]);
+            Candlestick newStick = Combine(newStick1, sticks5min[i + 2]);
+            sticks15minutes.push_back(newStick);
+        }
+        std::unique_ptr<Chart> chart(new Chart(sticks15minutes));
+        this->charts_[(int)TradeDataPeriod::Minutes15] = std::move(chart);
+        Update30MinutesChart();
+        Update60MinutesChart();
+    }
+    void Update30MinutesChart() {
+        if (chart(15) == nullptr) {
+            assert(false);
+        }
+        std::vector<Candlestick> sticks30minutes;
+        const std::vector<Candlestick>& sticks15min = this->chart(15)->sticks();
+        for (size_t i = 0; i < sticks15min.size(); i++) {
+            std::string dayOpen = sticks15min[i].trade_time.ToString().substr(0, 10) + " " + "09:00";
+            std::string dayClose = sticks15min[i].trade_time.ToString().substr(0, 10) + " " + "15:00";
+            if (i + 1 < sticks15min.size()
+                    && dayOpen <= sticks15min[i].trade_time.ToString() && sticks15min[i].trade_time.ToString() <= dayClose
+                    && dayOpen <= sticks15min[i + 1].trade_time.ToString() && sticks15min[i + 1].trade_time.ToString() <= dayClose) {
+                Candlestick newStick = Combine(sticks15min[i], sticks15min[i + 1]);
+                sticks30minutes.push_back(newStick);
+                i++;
+            } else {
+                Candlestick newStick = sticks15min[i];
+                sticks30minutes.push_back(newStick);
+            }
+        }
+        std::unique_ptr<Chart> chart(new Chart(sticks30minutes));
+        this->charts_[(int)TradeDataPeriod::Minutes30] = std::move(chart);
+    }
+    void Update60MinutesChart() {
+        if (chart(30) == nullptr) {
+            assert(false);
+        }
+        std::vector<Candlestick> sticks60minutes;
+        const std::vector<Candlestick>& sticks30min = this->chart(30)->sticks();
+        for (size_t i = 0; i < sticks30min.size(); i++) {
+            std::string dayOpen = sticks30min[i].trade_time.ToString().substr(0, 10) + " " + "09:00";
+            std::string dayClose = sticks30min[i].trade_time.ToString().substr(0, 10) + " " + "15:00";
+            if (i + 1 < sticks30min.size()
+                    && dayOpen <= sticks30min[i].trade_time.ToString() && sticks30min[i].trade_time.ToString() <= dayClose
+                    && dayOpen <= sticks30min[i + 1].trade_time.ToString() && sticks30min[i + 1].trade_time.ToString() <= dayClose) {
+                Candlestick newStick = Combine(sticks30min[i], sticks30min[i + 1]);
+                sticks60minutes.push_back(newStick);
+                i++;
+            } else {
+                Candlestick newStick = sticks30min[i];
+                sticks60minutes.push_back(newStick);
+            }
+        }
+        std::unique_ptr<Chart> chart(new Chart(sticks60minutes));
+        this->charts_[(int)TradeDataPeriod::Minutes60] = std::move(chart);
     }
 };

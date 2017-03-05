@@ -46,17 +46,37 @@ public:
     BOLL(const Chart* pchart, int n, int p);
 };
 
-//class BOLLCalculator {
-//public:
-//	// this can be easy to test and debug
-//	double* mids;
-//	double* sd;
-//	const Stock& s;
-//	int p;
-//	BOLLCalculator(const Stock& s, int n, int p);
-//	std::vector<BOLL> GetResult();
-//	~BOLLCalculator() {
-//		DELETE_IF_NOT_NULLPTR(mids);
-//		DELETE_IF_NOT_NULLPTR(sd);
-//	}
-//};
+class POI {
+public:
+    const Chart* chart = nullptr;
+    int n;
+    enum class Tag {
+        NewHigh, NewLow, None
+    };
+    std::vector<Tag> tags;
+    std::vector<float> pos;
+    POI(const Chart* pchart, int n);
+    int NearestTag(int data_i) const {
+        for (int i = data_i; i >= 0; i--) {
+            if (tags[i] != Tag::None)
+                return i;
+        }
+        return -1;
+    }
+    int NearestTag(int data_i, Tag t) const {
+        for (int i = data_i; i >= 0; i--) {
+            if (tags[i] == t)
+                return i;
+        }
+        return -1;
+    }
+    Tag OppsiteTag(Tag t) const {
+        if (t == Tag::NewHigh)
+            return Tag::NewLow;
+        if (t == Tag::NewLow)
+            return Tag::NewHigh;
+        else
+            return Tag::None;
+    }
+    float GetPos(int data_i);
+};
