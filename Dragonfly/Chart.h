@@ -6,31 +6,78 @@
 
 #include "Candlestick.h"
 #include "MACD.h"
+#include "MTI.h"
 #define FMT_HEADER_ONLY
 #include "fmt\format.h"
 
 class Chart {
-private:
+public:
+    enum class Period {
+        Minutes5,
+        Minutes15,
+        Minutes30,
+        Minutes60,
+        Day,
+        End
+    };
+protected:
+    Period period_;
+    std::string id_;
+    std::string name_;
     std::vector<Candlestick> sticks_;
     //Candlestick* psticks_ = nullptr;
     std::map<std::string, std::vector<MACD>> macds_;
     std::vector<std::unique_ptr<BOLL>> bolls_;
     std::vector<std::unique_ptr<POI>> pois_;
+    std::vector<std::unique_ptr<MTI<2>>> mti2_;
 public:
     std::vector<std::unique_ptr<KDJ>> kdjs_;
 public:
+    Period period() const {
+        return period_;
+    }
+    const std::string& id() const {
+        return id_;
+    }
+    const std::string& name() const {
+        return name_;
+    }
     // std::vector<std::vector<MACD>*> qmacds;
     //std::vector<std::unique_ptr<KDJ>> qkdjs;
 public:
     //std::map<int, std::vector<double>> rsvs;
     Chart() {}
-    Chart(const std::vector<Candlestick>& src) {
+    Chart(const std::vector<Candlestick>& src, Period period, const std::string& id, const std::string& name, bool is_init_mit2 = true): period_(period), id_(id), name_(name) {
         std::copy(src.begin(), src.end(), back_inserter(sticks_));
-        // psticks_ = new Candlestick[sticks_.size()];
-        // for (int i = 0; i < sticks_.size(); i++) {
-        //     psticks_[i] = sticks_[i];
-        // }
+        InitSticks();
+        if (is_init_mit2) {
+            InitMTI2();
+        }
     }
+    void InitSticks() {
+        sticks_[0].prev = nullptr;
+        for (int i = 1; i < sticks_.size(); i++) {
+            sticks_[i].prev = &sticks_[i - 1];
+        }
+    }
+    void InitMTI2() {
+        assert(sticks().size() > 0);
+        if (mti2_.size() == 0) {
+            std::unique_ptr<MTI<2>> newMTI2(new MTI<2>(this->sticks(), *kdj(9, 3, 3)));
+            this->mti2_.push_back(std::move(newMTI2));
+        }
+    }
+    //void LoadData
+    //Chart(const std::vector<Candlestick>&& src) {
+    //    //std::cout << "Chart move\n";
+    //    sticks_ = src;
+    //    if (sticks_.size() == 0)
+    //        return;
+    //    sticks_[0].prev = nullptr;
+    //    for (int i = 1; i < sticks_.size(); i++) {
+    //        sticks_[i].prev = &sticks_[i - 1];
+    //    }
+    //}
     ~Chart() {
         //DELETE_IF_NOT_NULLPTR(psticks_);
     }
@@ -40,6 +87,9 @@ public:
     //const Candlestick* psticks() const {
     //    return psticks_;
     // }
+    MTI<2>* mti2() {
+        return mti2_[0].get();
+    }
     const std::vector<std::unique_ptr<KDJ>>& kdjs() const {
         return kdjs_;
     }
@@ -137,7 +187,8 @@ public:
                 rsv = 0.0;
             if (rsv < 0) {
                 // print("rsv < 0 at ${i} ${tradeData[i].tradeTime} high:${hn} low:${ln} C:${C}");
-                assert(0 > 1);
+                // assert(0 > 1);
+                rsv = 0.0;
             }
             rsvs[i] = rsv;
         }

@@ -7,6 +7,7 @@
 #include "fmt\format.h"
 
 #include "DateTime.h"
+#include "util.h"
 
 #define MIN(a,b) (((a)<(b))?(a):(b))
 #define MAX(a,b) (((a)>(b))?(a):(b))
@@ -56,25 +57,9 @@ struct Candlestick {
     }
 
     Candlestick* prev;
-    int i; // index self
     DateTime trade_time;
     TRADA_DATA_FLOAT open = 0, close = 0, high = 0, low = 0, volume = 0;
-    //bool is_S_ST_StarST;
 private:
-    //bool is_stick_up_;
-    //bool is_stick_filled_;
-    //bool is_high_new_high_or_is_low_new_low_5days_;
-    //bool is_high_new_high_5days_;
-    //bool is_low_new_low_5days_;
-    //TRADA_DATA_FLOAT body_up_line_;
-    //TRADA_DATA_FLOAT body_bottom_line_;
-    //TRADA_DATA_FLOAT upper_shadow_amplitude_;
-    //TRADA_DATA_FLOAT lower_shadow_amplitude_;
-    //TRADA_DATA_FLOAT amplitude_;
-    //TRADA_DATA_FLOAT body_amplitude_;
-    //SimpleCandleType simple_candle_type_;
-    //CandleType candle_type_;
-    //bool can_open_long_position_at_close_price_;
 public: // property
     bool is_stick_up() const {
         return close > open;
@@ -120,32 +105,7 @@ public: // property
             return upper_shadow_amplitude();
         }
     }
-    bool has_long_tail() const {
-        if (body_amplitude() < 1.0 / 100) {
-            // if (is_stick_up()) {
-            return lower_shadow_amplitude() > 2.0 / 100;
-            //} else
-            //     return upper_shadow_amplitude() > 2.0 / 100;
-        } else {
-            if (is_stick_up()) {
-                return lower_shadow_amplitude() > body_amplitude();
-            } else
-                return upper_shadow_amplitude() > body_amplitude();
-        }
-    }
-    bool has_long_head() const {
-        if (body_amplitude() < 1.0 / 100) {
-            // if (is_stick_up()) {
-            return upper_shadow_amplitude() > 2.0 / 100;
-            // } else
-            //     return lower_shadow_amplitude() > 2.0 / 100;
-        } else {
-            if (is_stick_up()) {
-                return upper_shadow_amplitude() > body_amplitude();
-            } else
-                return lower_shadow_amplitude() > body_amplitude();
-        }
-    }
+
     SimpleBodyBodyPositionType body_body_position_type() const {
         if (prev == nullptr)
             return SimpleBodyBodyPositionType::End;
@@ -275,6 +235,32 @@ private:
         }
         can_open_long_position_at_close_price_ = true;
     }*/
+    //bool has_long_tail() const {
+    //    if (body_amplitude() < 1.0 / 100) {
+    //        // if (is_stick_up()) {
+    //        return lower_shadow_amplitude() > 2.0 / 100;
+    //        //} else
+    //        //     return upper_shadow_amplitude() > 2.0 / 100;
+    //    } else {
+    //        if (is_stick_up()) {
+    //            return lower_shadow_amplitude() > body_amplitude();
+    //        } else
+    //            return upper_shadow_amplitude() > body_amplitude();
+    //    }
+    //}
+    //bool has_long_head() const {
+    //    if (body_amplitude() < 1.0 / 100) {
+    //        // if (is_stick_up()) {
+    //        return upper_shadow_amplitude() > 2.0 / 100;
+    //        // } else
+    //        //     return lower_shadow_amplitude() > 2.0 / 100;
+    //    } else {
+    //        if (is_stick_up()) {
+    //            return upper_shadow_amplitude() > body_amplitude();
+    //        } else
+    //            return lower_shadow_amplitude() > body_amplitude();
+    //    }
+    //}
 public:
     Candlestick() {
     }
@@ -328,6 +314,24 @@ public:
     }
     float open_percent() const {
         return (open - prev->close) / prev->close;
+    }
+    int open_type(double falt_percent) const {
+        if (prev == nullptr)
+            return 0;
+        if (open_percent() > falt_percent)
+            return 1;
+        if (open_percent() < -falt_percent)
+            return -1;
+        return 0;
+    }
+    //bool IsClosePriceEngulfing() const {
+    //    if (prev == nullptr)
+    //        return false;
+    //}
+    bool IsClosePriceGTPrevOpen() const {
+        if (prev == nullptr)
+            return false;
+        return close > prev->open;
     }
     float body_middle() const {
         return (open + close) / 2;
@@ -407,3 +411,7 @@ inline Candlestick Combine(const Candlestick& stick1, const Candlestick& stick2)
     stick.volume = stick1.volume + stick2.volume;
     return stick;
 }
+
+//struct TechnicalCandlestick {
+//
+//};
