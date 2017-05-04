@@ -4,9 +4,16 @@
 #include <map>
 #include <cassert>
 
+#include "MACSTI.h"
+#include "KDJCSTI.h"
 #include "Candlestick.h"
 #include "MACD.h"
 #include "MTI.h"
+#include "STI.h"
+#include "WPI.h"
+#include "BIAS.h"
+#include "RSI.h"
+
 #define FMT_HEADER_ONLY
 #include "fmt\format.h"
 
@@ -26,12 +33,21 @@ protected:
     std::string name_;
     std::vector<Candlestick> sticks_;
     //Candlestick* psticks_ = nullptr;
-    std::map<std::string, std::vector<MACD>> macds_;
+    std::vector<std::unique_ptr<MACD>> macds_;
+    std::vector<std::unique_ptr<MA>> mas_;
+    std::vector<std::unique_ptr<AMA>> amas_;
     std::vector<std::unique_ptr<BOLL>> bolls_;
-    std::vector<std::unique_ptr<POI>> pois_;
-    std::vector<std::unique_ptr<MTI<2>>> mti2_;
+    std::vector<std::unique_ptr<RSI>> rsis_;
+    //std::vector<std::unique_ptr<POI>> pois_;
+    //std::vector<std::unique_ptr<MTI<2>>> mti2_;
+    //std::vector<std::unique_ptr<MTI<3>>> mti3_;
+    //std::vector<std::unique_ptr<Person>> person_;
+    //std::unique_ptr<MAC2STI> mac2sti_;
+    // std::unique_ptr<KDJC2STI> kdjc2sti_;
 public:
     std::vector<std::unique_ptr<KDJ>> kdjs_;
+    std::vector<std::unique_ptr<WPI>> wpis_;
+    std::vector<std::unique_ptr<BIAS>> biass_;
 public:
     Period period() const {
         return period_;
@@ -51,22 +67,38 @@ public:
         std::copy(src.begin(), src.end(), back_inserter(sticks_));
         InitSticks();
         if (is_init_mit2) {
-            InitMTI2();
+            //  InitMTI2();
         }
     }
     void InitSticks() {
+        if (sticks_.size() == 0)
+            return;
         sticks_[0].prev = nullptr;
-        for (int i = 1; i < sticks_.size(); i++) {
+        for (size_t i = 1; i < sticks_.size(); i++) {
             sticks_[i].prev = &sticks_[i - 1];
         }
     }
-    void InitMTI2() {
-        assert(sticks().size() > 0);
-        if (mti2_.size() == 0) {
-            std::unique_ptr<MTI<2>> newMTI2(new MTI<2>(this->sticks(), *kdj(9, 3, 3)));
-            this->mti2_.push_back(std::move(newMTI2));
-        }
-    }
+    /* bool CheckSticksDate() {
+         for (int i = 1; i < sticks().size(); i++) {
+             if (sticks()[i - 1].trade_time.AddMinutes(5) != sticks()[i].trade_time
+                     || sticks()[i - 1].trade_time.AddMinutes(15) != sticks()[i].trade_time
+                     || sticks()[i - 1].trade_time.AddMinutes(120) != sticks()[i].trade_time
+                )
+                 return false;
+         }
+         return true;
+     }*/
+    //void InitMTI2() {
+    //    assert(sticks().size() > 0);
+    //    if (mti2_.size() == 0) {
+    //        std::unique_ptr<MTI<2>> newMTI2(new MTI<2>(this->sticks(), *kdj(9, 3, 3)));
+    //        this->mti2_.push_back(std::move(newMTI2));
+    //    }
+    //    if (mti3_.size() == 0) {
+    //        std::unique_ptr<MTI<3>> newMTI3(new MTI<3>(this->sticks(), *kdj(9, 3, 3)));
+    //        this->mti3_.push_back(std::move(newMTI3));
+    //    }
+    //}
     //void LoadData
     //Chart(const std::vector<Candlestick>&& src) {
     //    //std::cout << "Chart move\n";
@@ -87,14 +119,43 @@ public:
     //const Candlestick* psticks() const {
     //    return psticks_;
     // }
-    MTI<2>* mti2() {
-        return mti2_[0].get();
-    }
+    //will move sti to dartlang web
+    /* MTI<2>* mti2() {
+         return mti2_[0].get();
+     }
+     MTI<3>* mti3() {
+         return mti3_[0].get();
+     }
+     void InitSTI(Market* market) {
+         mac2sti_ = std::make_unique<MAC2STI>(market, this, sticks(), *ma(5), *ma(10), *ma(20), *ma(60));
+         kdjc2sti_ = std::make_unique<KDJC2STI>(market, this, sticks(), *kdj(9, 3, 3));
+     }
+     MAC2STI* mac2sti() const {
+         return mac2sti_.get();
+     }
+     KDJC2STI* kdjc2sti() const {
+         return kdjc2sti_.get();
+     }*/
     const std::vector<std::unique_ptr<KDJ>>& kdjs() const {
         return kdjs_;
     }
+    const std::vector<std::unique_ptr<RSI>>& rsis() const {
+        return rsis_;
+    }
+    const std::vector<std::unique_ptr<MA>>& mas() const {
+        return mas_;
+    }
+    const std::vector<std::unique_ptr<AMA>>& amas() const {
+        return amas_;
+    }
+    const std::vector<std::unique_ptr<WPI>>& wpis() const {
+        return wpis_;
+    }
     const std::vector<std::unique_ptr<BOLL>>& bolls() const {
         return bolls_;
+    }
+    const std::vector<std::unique_ptr<MACD>>& macds() const {
+        return macds_;
     }
     int GetIndex(const DateTime& time) const {
         for (size_t i = 0; i < this->sticks().size(); i++) {
@@ -194,16 +255,45 @@ public:
         }
         return rsvs;
     }
-    const std::vector<MACD>& macd(int short_n, int long_n, int dea_n) {
-        std::string id = fmt::format("MACD({0},{1},{2})", short_n, long_n, dea_n);
-        if (macds_.find(id) == macds_.end()) {
-            std::vector<MACD> macdnnn = MACDCalculator::GetResult(*this, short_n, long_n, dea_n);
-            //macds_.insert(std::map<std::string, std::vector<MACD>>::value_type(id, macdnnn));
-            macds_[id] = macdnnn;
-            return macds_[id];
-        } else {
-            return macds_[id];
-        }
+    const MACD* macd(int short_n, int long_n, int dea_n) {
+        std::vector<std::unique_ptr<MACD>>::iterator it = std::find_if(macds_.begin(), macds_.end(), [&](const std::unique_ptr<MACD> & v) {
+            return (v->short_n == short_n && v->long_n == long_n && v->dea_n == dea_n);
+        });
+        if (it == macds_.end()) {
+            macds_.push_back(std::make_unique<MACD>(this, short_n, long_n, dea_n));
+            return macds_.back().get();
+        } else
+            return (*it).get();
+    }
+    const MA* ma(int n) {
+        std::vector<std::unique_ptr<MA>>::iterator it = std::find_if(mas_.begin(), mas_.end(), [&](const std::unique_ptr<MA> & v) {
+            return (v->n == n);
+        });
+        if (it == mas_.end()) {
+            mas_.push_back(std::make_unique<MA>(this, n));
+            return mas_.back().get();
+        } else
+            return (*it).get();
+    }
+    const AMA* ama(int n) {
+        std::vector<std::unique_ptr<AMA>>::iterator it = std::find_if(amas_.begin(), amas_.end(), [&](const std::unique_ptr<AMA> & v) {
+            return (v->n == n);
+        });
+        if (it == amas_.end()) {
+            amas_.push_back(std::make_unique<AMA>(this, n));
+            return amas_.back().get();
+        } else
+            return (*it).get();
+    }
+    const BIAS* bias(int n) {
+        std::vector<std::unique_ptr<BIAS>>::iterator it = std::find_if(biass_.begin(), biass_.end(), [&](const std::unique_ptr<BIAS> & v) {
+            return (v->n == n);
+        });
+        if (it == biass_.end()) {
+            biass_.push_back(std::make_unique<BIAS>(this, n));
+            return biass_.back().get();
+        } else
+            return (*it).get();
     }
     const KDJ* kdj(int n, int sn1, int sn2) {
         std::vector<std::unique_ptr<KDJ>>::iterator it = std::find_if(kdjs_.begin(), kdjs_.end(), [&](const std::unique_ptr<KDJ> & v) {
@@ -212,6 +302,26 @@ public:
         if (it == kdjs_.end()) {
             kdjs_.push_back(std::make_unique<KDJ>(this, n, sn1, sn2, true, true));
             return kdjs_.back().get();
+        } else
+            return (*it).get();
+    }
+    const RSI* rsi(int n) {
+        std::vector<std::unique_ptr<RSI>>::iterator it = std::find_if(rsis_.begin(), rsis_.end(), [&](const std::unique_ptr<RSI> & v) {
+            return (v->n == n);
+        });
+        if (it == rsis_.end()) {
+            rsis_.push_back(std::make_unique<RSI>(this, n));
+            return rsis_.back().get();
+        } else
+            return (*it).get();
+    }
+    const WPI* wpi(int n) {
+        std::vector<std::unique_ptr<WPI>>::iterator it = std::find_if(wpis_.begin(), wpis_.end(), [&](const std::unique_ptr<WPI> & v) {
+            return (v->n == n);
+        });
+        if (it == wpis_.end()) {
+            wpis_.push_back(std::make_unique<WPI>(this, n));
+            return wpis_.back().get();
         } else
             return (*it).get();
     }
@@ -225,7 +335,7 @@ public:
         } else
             return (*it).get();
     }
-    const POI* poi(int n) {
+    /*const POI* poi(int n) {
         std::vector<std::unique_ptr<POI>>::iterator it = std::find_if(pois_.begin(), pois_.end(), [&](const std::unique_ptr<POI> & v) {
             return (v->n == n);
         });
@@ -234,5 +344,5 @@ public:
             return pois_.back().get();
         } else
             return (*it).get();
-    }
+    }*/
 };
