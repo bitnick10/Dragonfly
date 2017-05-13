@@ -13,6 +13,8 @@
 #include "WPI.h"
 #include "BIAS.h"
 #include "RSI.h"
+#include "OBV.h"
+#include "OBVSMA.h"
 
 #define FMT_HEADER_ONLY
 #include "fmt\format.h"
@@ -20,6 +22,7 @@
 class Chart {
 public:
     enum class Period {
+        Minutes1,
         Minutes5,
         Minutes15,
         Minutes30,
@@ -46,6 +49,8 @@ protected:
     // std::unique_ptr<KDJC2STI> kdjc2sti_;
 public:
     std::vector<std::unique_ptr<KDJ>> kdjs_;
+    std::vector<std::unique_ptr<OBV>> obvs_;
+    std::vector<std::unique_ptr<OBVSMA>> obvsmas_;
     std::vector<std::unique_ptr<WPI>> wpis_;
     std::vector<std::unique_ptr<BIAS>> biass_;
 public:
@@ -302,6 +307,22 @@ public:
         if (it == kdjs_.end()) {
             kdjs_.push_back(std::make_unique<KDJ>(this, n, sn1, sn2, true, true));
             return kdjs_.back().get();
+        } else
+            return (*it).get();
+    }
+    const OBV* obv() {
+        if (obvs_.size() == 0) {
+            obvs_.push_back(std::make_unique<OBV>(this));
+        }
+        return obvs_[0].get();
+    }
+    const OBVSMA* obvsma(int n) {
+        std::vector<std::unique_ptr<OBVSMA>>::iterator it = std::find_if(obvsmas_.begin(), obvsmas_.end(), [&](const std::unique_ptr<OBVSMA> & v) {
+            return (v->n == n);
+        });
+        if (it == obvsmas_.end()) {
+            obvsmas_.push_back(std::make_unique<OBVSMA>(this, n));
+            return obvsmas_.back().get();
         } else
             return (*it).get();
     }
